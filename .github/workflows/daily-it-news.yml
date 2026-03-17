@@ -194,16 +194,17 @@ jobs:
             const fs = require('fs');
             async function upload() {
               const b64 = fs.readFileSync('cf_image.jpg').toString('base64');
-              const body = new URLSearchParams();
-              body.append('key', '6d207e02198a847aa98d0a2a901485a5');
-              body.append('action', 'upload');
-              body.append('format', 'json');
-              body.append('source', b64);
+              const body = new URLSearchParams({
+                key: '6d207e02198a847aa98d0a2a901485a5',
+                action: 'upload',
+                format: 'json',
+                source: b64
+              });
               try {
                 const res = await fetch('https://freeimage.host/api/1/upload', {
                   method: 'POST',
                   headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-                  body: body
+                  body: body.toString()
                 });
                 console.log(await res.text());
               } catch(e) {
