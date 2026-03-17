@@ -61,8 +61,8 @@ jobs:
       - name: Post to Bluesky (Approved)
         if: steps.vars.outputs.action == 'approve'
         env:
-          BLUESKY_HANDLE: ${{ secrets.BLUESKY_HANDLE }}
-          BLUESKY_TOKEN: ${{ secrets.BLUESKY_TOKEN }}
+          BLUESKY_HANDLE: ${{ secrets.BLUESKY_USERNAME }}
+          BLUESKY_TOKEN: ${{ secrets.BLUESKY_APP_KEY }}
         run: |
           python3 - << 'EOF'
           import os
