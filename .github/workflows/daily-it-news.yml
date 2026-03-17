@@ -39,6 +39,8 @@ on:
 jobs:
   post-news:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
       - uses: actions/checkout@v3
 
@@ -196,15 +198,16 @@ jobs:
             API="https://api.github.com/repos/$REPO"
             AUTH_HEADER="Authorization: Bearer $GH_TOKEN"
             ACCEPT_HEADER="Accept: application/vnd.github+json"
+            VERSION_HEADER="X-GitHub-Api-Version: 2022-11-28"
             RELEASE_TAG="${IMAGE_RELEASE_TAG:-image-bucket}"
 
-            RELEASE_RESP=$(curl -s -H "$AUTH_HEADER" -H "$ACCEPT_HEADER" "$API/releases/tags/$RELEASE_TAG")
+            RELEASE_RESP=$(curl -s -H "$AUTH_HEADER" -H "$ACCEPT_HEADER" -H "$VERSION_HEADER" "$API/releases/tags/$RELEASE_TAG")
             RELEASE_ID=$(echo "$RELEASE_RESP" | jq -r '.id // empty')
 
             if [ -z "$RELEASE_ID" ] || [ "$RELEASE_ID" = "null" ]; then
               echo "Creating image bucket release..."
               PAYLOAD=$(jq -n --arg tag "$RELEASE_TAG" '{tag_name:$tag,name:"Daily IT Image Bucket",draft:false,prerelease:false}')
-              CREATE_RESP=$(curl -s -X POST -H "$AUTH_HEADER" -H "$ACCEPT_HEADER" "$API/releases" -d "$PAYLOAD")
+              CREATE_RESP=$(curl -s -X POST -H "$AUTH_HEADER" -H "$ACCEPT_HEADER" -H "$VERSION_HEADER" "$API/releases" -d "$PAYLOAD")
               RELEASE_ID=$(echo "$CREATE_RESP" | jq -r '.id // empty')
               if [ -z "$RELEASE_ID" ] || [ "$RELEASE_ID" = "null" ]; then
                 echo "Failed to create release:"
@@ -215,7 +218,7 @@ jobs:
             if [ -n "$RELEASE_ID" ] && [ "$RELEASE_ID" != "null" ]; then
               ASSET_NAME="it-cartoon-$(date +%s).jpg"
               UPLOAD_URL="https://uploads.github.com/repos/$REPO/releases/$RELEASE_ID/assets?name=$ASSET_NAME"
-              UPLOAD_RESP=$(curl -s -X POST -H "$AUTH_HEADER" -H "Content-Type: image/jpeg" --data-binary "@cf_image.jpg" "$UPLOAD_URL")
+              UPLOAD_RESP=$(curl -s -X POST -H "$AUTH_HEADER" -H "$ACCEPT_HEADER" -H "$VERSION_HEADER" -H "Content-Type: image/jpeg" --data-binary "@cf_image.jpg" "$UPLOAD_URL")
               ASSET_URL=$(echo "$UPLOAD_RESP" | jq -r '.browser_download_url // empty')
               if [ -n "$ASSET_URL" ]; then
                 CURRENT_IMAGE="$ASSET_URL"
