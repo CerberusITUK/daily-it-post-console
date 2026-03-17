@@ -1,6 +1,6 @@
-name: "approval-worker"
-main: "src/index.js"
-compatibility_date: "2024-03-15"
+name = "approval-worker"
+main = "src/index.js"
+compatibility_date = "2024-03-15"
 
 # Environment variables for the worker
 # DO NOT add secrets here! We will set them via Wrangler CLI or Cloudflare Dashboard.
