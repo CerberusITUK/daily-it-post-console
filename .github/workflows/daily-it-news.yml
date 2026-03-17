@@ -54,19 +54,59 @@ jobs:
           echo "link=${{ github.event.inputs.link || '' }}" >> $GITHUB_OUTPUT
           echo "date=${{ github.event.inputs.date || '' }}" >> $GITHUB_OUTPUT
 
+      - name: Install dependencies
+        if: always() && steps.vars.outputs.action != 'redo_image'
+        run: pip install feedparser jq atproto
+
       - name: Post to Bluesky (Approved)
         if: steps.vars.outputs.action == 'approve'
+        env:
+          BLUESKY_HANDLE: ${{ secrets.BLUESKY_HANDLE }}
+          BLUESKY_TOKEN: ${{ secrets.BLUESKY_TOKEN }}
         run: |
-          echo "Approved! Posting to Bluesky..."
-          # curl -X POST "https://bsky.social/api/post" \
-          #   -H "Authorization: Bearer ${{ secrets.BLUESKY_TOKEN }}" \
-          #   -F "text=${{ steps.vars.outputs.summary }}" \
-          #   -F "image_url=${{ steps.vars.outputs.image }}"
-          echo "Posted to Bluesky successfully."
+          python3 - << 'EOF'
+          import os
+          import urllib.request
+          from atproto import Client, client_utils
 
-      - name: Install feedparser
-        if: steps.vars.outputs.action != 'approve' && steps.vars.outputs.action != 'redo_image'
-        run: pip install feedparser jq
+          handle = os.environ.get("BLUESKY_HANDLE")
+          app_password = os.environ.get("BLUESKY_TOKEN")
+          
+          summary = "${{ steps.vars.outputs.summary }}"
+          hashtags = "${{ steps.vars.outputs.hashtags }}"
+          link = "${{ steps.vars.outputs.link }}"
+          image_url = "${{ steps.vars.outputs.image }}"
+
+          if not handle or not app_password:
+              print("Missing Bluesky credentials")
+              exit(1)
+
+          client = Client()
+          client.login(handle, app_password)
+
+          text_builder = client_utils.TextBuilder()
+          text_builder.text(summary + "\n\n")
+          text_builder.text(hashtags + "\n\n")
+          text_builder.link("Read the full article", link)
+
+          try:
+              # Download image to memory
+              req = urllib.request.Request(image_url, headers={'User-Agent': 'Mozilla/5.0'})
+              with urllib.request.urlopen(req) as response:
+                  img_data = response.read()
+              
+              client.send_image(
+                  text=text_builder,
+                  image=img_data,
+                  image_alt="Daily IT News cartoon"
+              )
+              print("Successfully posted to Bluesky with image!")
+          except Exception as e:
+              print(f"Failed to post image: {e}")
+              print("Falling back to text-only post")
+              client.send_post(text_builder)
+
+          EOF
 
       - name: Fetch RSS
         if: steps.vars.outputs.action != 'approve' && steps.vars.outputs.action != 'redo_image'
