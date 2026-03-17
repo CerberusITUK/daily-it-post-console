@@ -124,7 +124,7 @@ jobs:
             exit 1
           fi
 
-          CONTENT=$(echo "$AI_RESPONSE" | jq -r '.choices[0].message.content')
+          CONTENT=$(echo "$AI_RESPONSE" | jq -r '.choices[0].message.content' | grep -o '{.*}' || echo "$AI_RESPONSE" | jq -r '.choices[0].message.content')
           SUMMARY_TEXT=$(echo "$CONTENT" | jq -r '.summary' 2>/dev/null || true)
           HASHTAGS_LINE=$(echo "$CONTENT" | jq -r '.hashtags | join(" ")' 2>/dev/null || true)
 
