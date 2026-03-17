@@ -188,9 +188,20 @@ jobs:
           if echo "$RESPONSE" | jq -e '.success==true' >/dev/null 2>&1; then
             IMAGE_BASE64=$(echo "$RESPONSE" | jq -r '.result.image')
             if [ -n "$IMAGE_BASE64" ] && [ "$IMAGE_BASE64" != "null" ]; then
-              IMAGE_DATA="data:image/jpeg;base64,$IMAGE_BASE64"
-              echo "CURRENT_IMAGE=$IMAGE_DATA" >> $GITHUB_ENV
-              echo "IMAGE_SOURCE=Cloudflare AI" >> $GITHUB_ENV
+              # Upload base64 to FreeImage.host to get a public URL for Brevo
+              UPLOAD_RESP=$(curl -s -X POST "https://freeimage.host/api/1/upload" \
+                -d "key=6d207e02198a847aa98d0a2a901485a5" \
+                -d "action=upload" \
+                -d "format=json" \
+                --data-urlencode "source=$IMAGE_BASE64")
+              
+              UPLOAD_URL=$(echo "$UPLOAD_RESP" | jq -r '.image.url // empty')
+              if [ -n "$UPLOAD_URL" ]; then
+                echo "CURRENT_IMAGE=$UPLOAD_URL" >> $GITHUB_ENV
+                echo "IMAGE_SOURCE=Cloudflare AI" >> $GITHUB_ENV
+              else
+                echo "Failed to upload image to freeimage.host: $UPLOAD_RESP"
+              fi
             fi
           fi
 
