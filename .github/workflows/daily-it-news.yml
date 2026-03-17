@@ -188,7 +188,7 @@ jobs:
 
           # Cloudflare now returns raw binary image data, not JSON
           curl -s --max-time 60 -X POST "$CF_URL" \
-            -H "Authorization: Bearer ${{ secrets.CF_AI_TOKEN }}" \
+            -H "Authorization: Bearer ${{ secrets.CF_AI_IMAGE_KEY }}" \
             -H "Content-Type: application/json" \
             -d "$CF_PROMPT" > cf_image.jpg
 
