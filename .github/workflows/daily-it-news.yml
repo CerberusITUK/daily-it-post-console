@@ -177,8 +177,9 @@ jobs:
       - name: Generate Cartoon Image
         if: steps.vars.outputs.action != 'approve'
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          IMAGE_RELEASE_TAG: image-bucket
+          IMAGE_REPO_PAT: ${{ secrets.IMAGE_REPO_PAT }}
+          IMAGE_REPO: CerberusITUK/daily-post-images
+          IMAGE_BRANCH: main
         run: |
           #!/bin/bash
           SAFE_SUMMARY=$(echo "$CURRENT_SUMMARY" | tr '\n' ' ' | sed 's/["'"'"']//g')
@@ -194,55 +195,47 @@ jobs:
           if file cf_image.jpg | grep -q -i "image"; then
             echo "Cloudflare image generated successfully."
 
-            REPO="$GITHUB_REPOSITORY"
-            API="https://api.github.com/repos/$REPO"
-            AUTH_HEADER="Authorization: Bearer $GH_TOKEN"
-            ACCEPT_HEADER="Accept: application/vnd.github+json"
-            VERSION_HEADER="X-GitHub-Api-Version: 2022-11-28"
-            RELEASE_TAG="${IMAGE_RELEASE_TAG:-image-bucket}"
-
-            RELEASE_RESP=$(curl -s -H "$AUTH_HEADER" -H "$ACCEPT_HEADER" -H "$VERSION_HEADER" "$API/releases/tags/$RELEASE_TAG")
-            RELEASE_ID=$(echo "$RELEASE_RESP" | jq -r '.id // empty')
-
-            if [ -z "$RELEASE_ID" ] || [ "$RELEASE_ID" = "null" ]; then
-              echo "Creating image bucket release..."
-              PAYLOAD=$(jq -n --arg tag "$RELEASE_TAG" '{tag_name:$tag,name:"Daily IT Image Bucket",draft:false,prerelease:false}')
-              CREATE_RESP=$(curl -s -X POST -H "$AUTH_HEADER" -H "$ACCEPT_HEADER" -H "$VERSION_HEADER" "$API/releases" -d "$PAYLOAD")
-              RELEASE_ID=$(echo "$CREATE_RESP" | jq -r '.id // empty')
-              if [ -z "$RELEASE_ID" ] || [ "$RELEASE_ID" = "null" ]; then
-                echo "Failed to create release:"
-                echo "$CREATE_RESP"
-              fi
+            if [ -z "$IMAGE_REPO_PAT" ]; then
+              echo "IMAGE_REPO_PAT secret is missing."
+              exit 1
             fi
 
-            if [ -n "$RELEASE_ID" ] && [ "$RELEASE_ID" != "null" ]; then
-              ASSET_NAME="it-cartoon-$(date +%s).jpg"
-              UPLOAD_URL="https://uploads.github.com/repos/$REPO/releases/$RELEASE_ID/assets?name=$ASSET_NAME"
-              UPLOAD_RESP=$(curl -s -X POST -H "$AUTH_HEADER" -H "$ACCEPT_HEADER" -H "$VERSION_HEADER" -H "Content-Type: image/jpeg" --data-binary "@cf_image.jpg" "$UPLOAD_URL")
-              ASSET_URL=$(echo "$UPLOAD_RESP" | jq -r '.browser_download_url // empty')
-              if [ -n "$ASSET_URL" ]; then
-                CURRENT_IMAGE="$ASSET_URL"
-                IMAGE_SOURCE="Cloudflare AI"
-                export CURRENT_IMAGE IMAGE_SOURCE
-                echo "CURRENT_IMAGE=$CURRENT_IMAGE" >> $GITHUB_ENV
-                echo "IMAGE_SOURCE=$IMAGE_SOURCE" >> $GITHUB_ENV
-              else
-                echo "Release asset upload failed:"
-                echo "$UPLOAD_RESP"
-              fi
+            ASSET_NAME="it-cartoon-$(date +%s).jpg"
+            DATE_PATH=$(date +%Y/%m/%d)
+            REMOTE_PATH="images/$DATE_PATH/$ASSET_NAME"
+            IMAGE_REPO="${IMAGE_REPO:-CerberusITUK/daily-post-images}"
+            IMAGE_BRANCH="${IMAGE_BRANCH:-main}"
+            API_URL="https://api.github.com/repos/$IMAGE_REPO/contents/$REMOTE_PATH"
+
+            echo "Uploading $ASSET_NAME to $IMAGE_REPO at $REMOTE_PATH"
+            B64_CONTENT=$(base64 -w 0 cf_image.jpg || base64 cf_image.jpg | tr -d '\n')
+            PAYLOAD=$(jq -n --arg message "Add $ASSET_NAME" --arg content "$B64_CONTENT" --arg branch "$IMAGE_BRANCH" '{message:$message,content:$content,branch:$branch}')
+
+            UPLOAD_RESP=$(curl -sS -X PUT "$API_URL" \
+              -H "Authorization: Bearer $IMAGE_REPO_PAT" \
+              -H "Accept: application/vnd.github+json" \
+              -H "Content-Type: application/json" \
+              -d "$PAYLOAD" || true)
+
+            echo "Upload response: $UPLOAD_RESP"
+            ASSET_URL=$(echo "$UPLOAD_RESP" | jq -r '.content.download_url // empty')
+            if [ -n "$ASSET_URL" ]; then
+              CURRENT_IMAGE="$ASSET_URL"
+              IMAGE_SOURCE="Cloudflare AI"
+              export CURRENT_IMAGE IMAGE_SOURCE
+              echo "CURRENT_IMAGE=$CURRENT_IMAGE" >> $GITHUB_ENV
+              echo "IMAGE_SOURCE=$IMAGE_SOURCE" >> $GITHUB_ENV
+            else
+              echo "Failed to upload image to public repo"
             fi
           else
             echo "Cloudflare API failed to return a valid image. Output was:"
             cat cf_image.jpg || true
           fi
 
-          # fallback if image is still missing
           if [ -z "$CURRENT_IMAGE" ]; then
-            echo "Falling back to Pollinations..."
-            SAFE_PROMPT=$(echo "$SAFE_SUMMARY" | head -c 80 | sed 's/[^a-zA-Z0-9 ]/ /g' | jq -sRr @uri)
-            IMAGE_URL="https://image.pollinations.ai/prompt/$SAFE_PROMPT"
-            echo "CURRENT_IMAGE=$IMAGE_URL" >> $GITHUB_ENV
-            echo "IMAGE_SOURCE=Pollinations" >> $GITHUB_ENV
+            echo "ERROR: Image upload failed, aborting run."
+            exit 1
           fi
 
       - name: Send Approval Email via Brevo
