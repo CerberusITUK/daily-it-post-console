@@ -189,15 +189,12 @@ jobs:
           if file cf_image.jpg | grep -q -i "image"; then
             echo "Cloudflare image generated successfully."
             
-            # Base64 encode the binary image for FreeImage.host
-            B64_IMAGE=$(base64 -w 0 cf_image.jpg 2>/dev/null || base64 cf_image.jpg | tr -d '\n')
-            
-            # Upload to FreeImage.host to get a public URL for Brevo
+            # Upload file directly to FreeImage.host to get a public URL for Brevo
             UPLOAD_RESP=$(curl -s -X POST "https://freeimage.host/api/1/upload" \
-              -d "key=6d207e02198a847aa98d0a2a901485a5" \
-              -d "action=upload" \
-              -d "format=json" \
-              --data-urlencode "source=$B64_IMAGE")
+              -F "key=6d207e02198a847aa98d0a2a901485a5" \
+              -F "action=upload" \
+              -F "format=json" \
+              -F "source=@cf_image.jpg")
             
             UPLOAD_URL=$(echo "$UPLOAD_RESP" | jq -r '.image.url // empty')
             if [ -n "$UPLOAD_URL" ]; then
