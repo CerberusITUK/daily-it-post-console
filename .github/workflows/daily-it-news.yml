@@ -49,8 +49,9 @@ jobs:
       - name: Fetch RSS
         if: steps.vars.outputs.action != 'approve' && steps.vars.outputs.action != 'redo_image'
         run: |
+          sudo apt-get update && sudo apt-get install -y libxml2-utils
           curl -s https://www.theregister.com/headlines.atom > feed.xml
-          SUMMARY=$(xmllint --xpath "//entry[1]/summary/text()" feed.xml)
+          SUMMARY=$(xmllint --xpath "//*[local-name()='entry'][1]/*[local-name()='summary']/text()" feed.xml)
           echo "ARTICLE_SUMMARY=$SUMMARY" >> $GITHUB_ENV
 
       - name: Generate AI Summary
