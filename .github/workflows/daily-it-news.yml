@@ -1,0 +1,41 @@
+name: Daily IT News
+
+on:
+  schedule:
+    - cron: "0 9 * * *" # 9am UTC daily
+  workflow_dispatch: # optional manual trigger
+
+jobs:
+  post-news:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Fetch RSS
+        run: |
+          curl -s https://www.theregister.com/headlines.atom > feed.xml
+          # parse first item
+          SUMMARY=$(xmllint --xpath "//entry[1]/summary/text()" feed.xml)
+          echo "ARTICLE_SUMMARY=$SUMMARY" >> $GITHUB_ENV
+
+      - name: Generate AI Summary (Free)
+        run: |
+          AI_SUMMARY=$(curl -s -X POST "https://openrouter.ai/api/v1/completions" \
+            -H "Authorization: Bearer ${{ secrets.OPENROUTER_API_KEY }}" \
+            -H "Content-Type: application/json" \
+            -d "{\"model\":\"MPT-7B\",\"prompt\":\"Summarize this IT news in a funny tone: $ARTICLE_SUMMARY\",\"max_tokens\":150}")
+          echo "AI_SUMMARY=$AI_SUMMARY" >> $GITHUB_ENV
+
+      - name: Generate Cartoon Image (Free)
+        run: |
+          IMAGE_URL=$(curl -s -X POST "https://api.craiyon.com/generate" \
+            -H "Content-Type: application/json" \
+            -d "{\"prompt\":\"Cartoon image for this summary: $AI_SUMMARY\"}" | jq -r '.images[0]')
+          echo "IMAGE_URL=$IMAGE_URL" >> $GITHUB_ENV
+
+      - name: Post to Bluesky
+        run: |
+          curl -X POST "https://bsky.social/api/post" \
+            -H "Authorization: Bearer ${{ secrets.BLUESKY_TOKEN }}" \
+            -F "text=$AI_SUMMARY" \
+            -F "image_url=$IMAGE_URL"
