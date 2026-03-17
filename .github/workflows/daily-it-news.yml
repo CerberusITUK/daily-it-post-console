@@ -33,9 +33,20 @@ jobs:
             -d "{\"prompt\":\"Cartoon image for this summary: $AI_SUMMARY\"}" | jq -r '.images[0]')
           echo "IMAGE_URL=$IMAGE_URL" >> $GITHUB_ENV
 
-      - name: Post to Bluesky
+      # - name: Post to Bluesky
+      #   run: |
+      #     curl -X POST "https://bsky.social/api/post" \
+      #       -H "Authorization: Bearer ${{ secrets.BLUESKY_TOKEN }}" \
+      #       -F "text=$AI_SUMMARY" \
+      #       -F "image_url=$IMAGE_URL"
+
+      - name: Save Output for Review
         run: |
-          curl -X POST "https://bsky.social/api/post" \
-            -H "Authorization: Bearer ${{ secrets.BLUESKY_TOKEN }}" \
-            -F "text=$AI_SUMMARY" \
-            -F "image_url=$IMAGE_URL"
+          echo "Summary: $AI_SUMMARY" > review.txt
+          echo "Image URL: $IMAGE_URL" >> review.txt
+
+      - name: Upload Review Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: daily-news-draft
+          path: review.txt
