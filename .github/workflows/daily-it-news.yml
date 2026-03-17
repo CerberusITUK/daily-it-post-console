@@ -42,7 +42,7 @@ jobs:
     permissions:
       contents: write
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
 
       - name: Parse Inputs
         id: vars
@@ -63,6 +63,10 @@ jobs:
         env:
           BLUESKY_HANDLE: ${{ secrets.BLUESKY_USERNAME }}
           BLUESKY_TOKEN: ${{ secrets.BLUESKY_APP_KEY }}
+          BSKY_SUMMARY: ${{ steps.vars.outputs.summary }}
+          BSKY_HASHTAGS: ${{ steps.vars.outputs.hashtags }}
+          BSKY_LINK: ${{ steps.vars.outputs.link }}
+          BSKY_IMAGE_URL: ${{ steps.vars.outputs.image }}
         run: |
           python3 - << 'EOF'
           import os
@@ -72,10 +76,10 @@ jobs:
           handle = os.environ.get("BLUESKY_HANDLE")
           app_password = os.environ.get("BLUESKY_TOKEN")
           
-          summary = "${{ steps.vars.outputs.summary }}"
-          hashtags = "${{ steps.vars.outputs.hashtags }}"
-          link = "${{ steps.vars.outputs.link }}"
-          image_url = "${{ steps.vars.outputs.image }}"
+          summary = os.environ.get("BSKY_SUMMARY", "")
+          hashtags = os.environ.get("BSKY_HASHTAGS", "")
+          link = os.environ.get("BSKY_LINK", "")
+          image_url = os.environ.get("BSKY_IMAGE_URL", "")
 
           if not handle or not app_password:
               print("Missing Bluesky credentials")
