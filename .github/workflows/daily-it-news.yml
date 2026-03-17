@@ -57,12 +57,24 @@ jobs:
       - name: Generate AI Summary
         if: steps.vars.outputs.action != 'approve' && steps.vars.outputs.action != 'redo_image'
         run: |
-          AI_SUMMARY=$(curl -s -X POST "https://openrouter.ai/api/v1/completions" \
+          # Use Chat Completion format for OpenRouter
+          PAYLOAD=$(jq -n --arg msg "Summarize this IT news in a funny tone: $ARTICLE_SUMMARY" \
+            '{model: "nousresearch/hermes-3-llama-3.1-405b", messages: [{role: "user", content: $msg}], max_tokens: 150}')
+          
+          AI_SUMMARY=$(curl -s -X POST "https://openrouter.ai/api/v1/chat/completions" \
             -H "Authorization: Bearer ${{ secrets.OPENROUTER_API_KEY }}" \
             -H "Content-Type: application/json" \
-            -d "{\"model\":\"MPT-7B\",\"prompt\":\"Summarize this IT news in a funny tone: $ARTICLE_SUMMARY\",\"max_tokens\":150}")
-          AI_SUMMARY=$(echo "$AI_SUMMARY" | jq -r '.choices[0].text' | tr -d '\n' | sed 's/"/\\"/g')
-          echo "CURRENT_SUMMARY=$AI_SUMMARY" >> $GITHUB_ENV
+            -d "$PAYLOAD")
+          
+          # Check for errors from API before parsing
+          if echo "$AI_SUMMARY" | grep -q '"error"'; then
+            echo "API Error: $AI_SUMMARY"
+            exit 1
+          fi
+          
+          # Extract text using chat completion structure
+          AI_TEXT=$(echo "$AI_SUMMARY" | jq -r '.choices[0].message.content' | tr -d '\n' | sed 's/"/\\"/g')
+          echo "CURRENT_SUMMARY=$AI_TEXT" >> $GITHUB_ENV
 
       - name: Use Existing Summary for Redo Image
         if: steps.vars.outputs.action == 'redo_image'
