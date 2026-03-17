@@ -86,8 +86,11 @@ jobs:
 
           text_builder = client_utils.TextBuilder()
           text_builder.text(summary + "\n\n")
-          text_builder.text(hashtags + "\n\n")
-          text_builder.link("Read the full article", link)
+          if hashtags:
+              text_builder.text(hashtags + "\n\n")
+          
+          if link and link.startswith("http"):
+              text_builder.link("Read the full article", link)
 
           try:
               # Download image to memory
