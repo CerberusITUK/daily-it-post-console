@@ -192,8 +192,11 @@ jobs:
             # Upload to Catbox for a reliable public URL
             CATBOX_RESP=$(curl -s -F "reqtype=fileupload" -F "userhash=" -F "fileToUpload=@cf_image.jpg" https://catbox.moe/user/api.php)
             if echo "$CATBOX_RESP" | grep -q '^https://'; then
-              echo "CURRENT_IMAGE=$CATBOX_RESP" >> $GITHUB_ENV
-              echo "IMAGE_SOURCE=Cloudflare AI" >> $GITHUB_ENV
+              CURRENT_IMAGE="$CATBOX_RESP"
+              IMAGE_SOURCE="Cloudflare AI"
+              export CURRENT_IMAGE IMAGE_SOURCE
+              echo "CURRENT_IMAGE=$CURRENT_IMAGE" >> $GITHUB_ENV
+              echo "IMAGE_SOURCE=$IMAGE_SOURCE" >> $GITHUB_ENV
             else
               echo "Catbox upload failed: $CATBOX_RESP"
             fi
