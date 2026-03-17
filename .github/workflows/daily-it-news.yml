@@ -6,19 +6,19 @@ on:
   workflow_dispatch:
     inputs:
       action:
-        description: 'Action from approval email'
+        description: "Action from approval email"
         required: false
-        default: ''
+        default: ""
         type: string
       summary:
-        description: 'Current summary text'
+        description: "Current summary text"
         required: false
-        default: ''
+        default: ""
         type: string
       image:
-        description: 'Current image URL'
+        description: "Current image URL"
         required: false
-        default: ''
+        default: ""
         type: string
 
 jobs:
@@ -34,7 +34,6 @@ jobs:
           echo "summary=${{ github.event.inputs.summary || '' }}" >> $GITHUB_OUTPUT
           echo "image=${{ github.event.inputs.image || '' }}" >> $GITHUB_OUTPUT
 
-      # Step 1: Handle Approve Action
       - name: Post to Bluesky (Approved)
         if: steps.vars.outputs.action == 'approve'
         run: |
@@ -45,102 +44,114 @@ jobs:
           #   -F "image_url=${{ steps.vars.outputs.image }}"
           echo "Posted to Bluesky successfully."
 
-      # Step 2: Fetch & Generate (If NOT Approved)
+      - name: Install feedparser
+        if: steps.vars.outputs.action != 'approve' && steps.vars.outputs.action != 'redo_image'
+        run: pip install feedparser
+
       - name: Fetch RSS
         if: steps.vars.outputs.action != 'approve' && steps.vars.outputs.action != 'redo_image'
         run: |
-          sudo apt-get update && sudo apt-get install -y libxml2-utils
-          curl -s https://www.theregister.com/headlines.atom > feed.xml
-          SUMMARY=$(xmllint --xpath "//*[local-name()='entry'][1]/*[local-name()='summary']/text()" feed.xml)
-          echo "ARTICLE_SUMMARY=$SUMMARY" >> $GITHUB_ENV
+          python3 <<'PY'
+          import os
+          import random
+          from datetime import datetime, timezone, timedelta
+          from zoneinfo import ZoneInfo
+          import feedparser
 
-      - name: Generate AI Summary
-        if: steps.vars.outputs.action != 'approve' && steps.vars.outputs.action != 'redo_image'
+          FEEDS = [
+              "https://www.theregister.com/headlines.atom",
+              "https://www.bbc.co.uk/news/technology/rss.xml",
+              "https://www.bleepingcomputer.com/feed/",
+              "https://www.computerweekly.com/rss/All-Computer-Weekly-content.xml",
+          ]
+
+          now_utc = datetime.now(timezone.utc)
+          window = now_utc - timedelta(hours=24)
+          candidates = []
+          fallback_entry = None
+          fallback_dt = None
+
+          def entry_dt(entry):
+              if getattr(entry, 'published_parsed', None):
+                  return datetime(*entry.published_parsed[:6], tzinfo=timezone.utc)
+              if getattr(entry, 'updated_parsed', None):
+                  return datetime(*entry.updated_parsed[:6], tzinfo=timezone.utc)
+              return None
+
+          for url in FEEDS:
+              feed = feedparser.parse(url)
+              for entry in feed.entries:
+                  dt = entry_dt(entry)
+                  if not dt:
+                      continue
+                  if dt >= window:
+                      candidates.append((dt, entry))
+                  if fallback_dt is None or dt > fallback_dt:
+                      fallback_dt = dt
+                      fallback_entry = entry
+
+          if not candidates and fallback_entry is None:
+              raise SystemExit('No RSS entries available')
+
+          chosen_dt, chosen_entry = (random.choice(candidates) if candidates else (fallback_dt, fallback_entry))
+
+          summary = getattr(chosen_entry, 'summary', getattr(chosen_entry, 'description', '')) or ''
+          summary = ' '.join(summary.split())
+          link = getattr(chosen_ent          link = getattr(chosen_ent          link =    dt_local = chosen_dt.astimezone(ZoneInfo('Europe/London')) if chosen_dt else datetime.now(ZoneInfo('Europe/London'))
+          formatted_date = dt_local.strftime('%d/%m/%Y')
+
+          with open(os.environ['GITHUB_ENV'], 'a') as env:
+              env.write(f"ARTICLE_SUMMARY={summary}\n")
+                    ite(f"ARTICLE_LINK={link}\n")
+              env              env              env                                 env              env              env         .outputs.action != 'approve' && steps.vars.outputs.action != 'redo_image'
         run: |
-          # Use Chat Completion format for OpenRouter
-          PROMPT_TEXT="You are a cynical, sarcastic IT Support technician. Summarize this IT news in 2 short, hilarious sentences. Focus on how this is an epic IT fail, or mock big companies like Microsoft/Google/Oracle. End with 3 funny hashtags. News: $ARTICLE_SUMMARY"
-          PAYLOAD=$(jq -n --arg msg "$PROMPT_TEXT" \
-            '{model: "nousresearch/hermes-3-llama-3.1-405b", messages: [{role: "user", content: $msg}], max_tokens: 150}')
-          
-          AI_SUMMARY=$(curl -s -X POST "https://openrouter.ai/api/v1/chat/completions" \
+          PROMPT_TEXT="You are a sarcastic British IT           PROMPT_TEXT="You are a sarcastic British IT MMARY'          PROMPT_TEXT="You are a sarcastic British IT           PROMPT_TEXT="You are a sarcastic Britracle if rele          PROMPT_TEXT="You are a sarcastic British IT           PROMPT_TEXT="You are a 2-3 sentence s          PROMPT_TEXT="You are a sarcastiag2\"          PROMPT_TEXT="You are a sarcastic British IT           PROMPT_TEXT="You are a sarcastic British IT MMARY'          PROMPT_TEXT="You are a sarcastic British IT           PROMPT_TEXT="You are a sarcurl -s -X POST "https://openrouter.ai/api/v1/chat/completions" \
             -H "Authorization: Bearer ${{ secrets.OPENROUTER_API_KEY }}" \
             -H "Content-Type: application/json" \
             -d "$PAYLOAD")
-          
-          # Check for errors from API before parsing
-          if echo "$AI_SUMMARY" | grep -q '"error"'; then
-            echo "API Error: $AI_SUMMARY"
+
+          if echo "$AI_RESPONSE" | grep -q '"error"'; then
+            echo "API Error: $AI_RESPONSE"
             exit 1
           fi
-          
-          # Extract text using chat completion structure
-          AI_TEXT=$(echo "$AI_SUMMARY" | jq -r '.choices[0].message.content' | tr -d '\n' | sed 's/"/\\"/g')
-          echo "CURRENT_SUMMARY=$AI_TEXT" >> $GITHUB_ENV
 
-      - name: Use Existing Summary for Redo Image
-        if: steps.vars.outputs.action == 'redo_image'
-        run: |
-          echo "CURRENT_SUMMARY=${{ steps.vars.outputs.summary }}" >> $GITHUB_ENV
+          CONTENT=$(echo "$AI_RESPONSE" | jq -r '.choices[0].message.content             SU          CONTENT=$(echo "$AI_RESPONSE" | jq -r '.choices[0].message.content             SU          CONTENT=$(echo "$AI_RESPONSE" | jq -r '.choices[0].message.content             SU          CONTENT=$(echo "$AI_RESPONSE" | jq -r '.choices[0].message.content             SU          CONTENT=$(echo "$AI_RESPONSE" | jq -r '.choices[0].message.content             SU          CONTENT=$(echo "$AI_RESPONSE" | jq -r '.choices[0].message.content             SU          CONTENT=$(echo "$AI_RESPONSE" | jq -r '.choices[0].message.content             SU          CONTENT=$(echo "$AI_RESPONSE" | jq -r '.choices[0].message.content             SU      $G          CONTENT=$(echo "$AI_RESPONSE" | jq -r '.choices[0].message.contNV          CONTENT=$(echo "$AI_RESPONSE" | jq -r >>          CONTENT=$(echo e:           CONTENT=$(echo "$AI_RESPONSE" | jq -r '.choicess.          CONTENT=$(echo "$AI_RESPONSE" |n:          CONTENT "CURRENT_SUMMARY=${{ steps.vars.outputs.summary }}" >> $GITHUB_ENV
 
       - name: Generate Cartoon Image
         if: steps.vars.outputs.action != 'approve'
         run: |
           CF_URL="https://api.cloudflare.com/client/v4/accounts/${{ secrets.CF_AI_ACCOUNT_ID }}/ai/run/@cf/bytedance/stable-diffusion-xl-lightning"
-          RESPONSE=$(curl -s -X POST $CF_URL \
+          RESPONSE=$(curl -s -X POST "$CF_URL" \
             -H "Authorization: Bearer ${{ secrets.CF_AI_TOKEN }}" \
             -H "Content-Type: application/json" \
-            -d "{\"prompt\":\"Cartoon style, colorful, comic book illustration of: $CURRENT_SUMMARY\"}")
-          
-          # Check if the response contains a valid base64 image
-          if echo "$RESPONSE" | grep -q "\"success\":true"; then
+            -d "{\"prompt\":\"British comic strip of an exasperated IT support engineer dealing with an epic outage: $CURRENT_SUMMARY\"}")
+
+          if echo "$RESPONSE" | jq -e '.success == true' >/dev/null 2>&1; then
             IMAGE_BASE64=$(echo "$RESPONSE" | jq -r '.result.image')
-            # Upload to a temporary image host (e.g., Freeimage.host or similar) or save it locally and host on a branch
-            # For email, we will save the base64 output, or better yet, since email clients handle embedded base64 poorly,
-            # we will upload it to imgBB for free hosting to get a URL.
-            
-            # Using ImgBB Free API (Requires a key. For now, since we just need an image URL, we will store the base64 locally 
-            # and perhaps skip displaying the image inline if we can't host it easily, or use a placeholder)
-            # Actually, to keep it simple, we will use a reliable free image generation API that returns a URL directly,
-            # or use Cloudflare Workers AI and upload to an image host. 
-            
-            # Let's try Pollinations.ai API for free direct URL generation which is very reliable:
-            PROMPT=$(node -e "console.log(encodeURIComponent('Funny comic book cartoon of a frustrated IT support worker, dealing with an IT fail. ' + process.env.CURRENT_SUMMARY.substring(0, 100).replace(/[^a-zA-Z0-9 ]/g, ' ')))")
-            IMAGE_URL="https://image.pollinations.ai/prompt/$PROMPT"
-            echo "CURRENT_IMAGE=$IMAGE_URL" >> $GITHUB_ENV
-          else
-            # Fallback to Pollinations directly
-            PROMPT=$(node -e "console.log(encodeURIComponent('Funny comic book cartoon of a frustrated IT support worker, dealing with an IT fail. ' + process.env.CURRENT_SUMMARY.substring(0, 100).replace(/[^a-zA-Z0-9 ]/g, ' ')))")
-            IMAGE_URL="https://image.pollinations.ai/prompt/$PROMPT"
-            echo "CURRENT_IMAGE=$IMAGE_URL" >> $GITHUB_ENV
-          fi
+            if [ -n "$IMAGE_BASE64" ] && [ "$IMAGE_BASE64" != "null" ]; then
+              IMAGE_DATA="data:image/png;base64,$IMAGE_BASE64"
+              echo "CURRENT_IMAGE=$IMAGE_DATA" >> $GITHUB_ENV
+              echo "IMAGE_SOURCE=Cloudflare AI" >> $GITHUB_ENV
+              echo "IMAGE_SOURCE=Cloudflare AI" >
+                                      on                                      on         PR             e                                       on                                      on         PR             e                                       onY.                                      on      )))")
+          IMAGE_URL="https://image.pollinations.ai/prompt/$PROMPT"
+          echo "CURRENT_IMAGE=$IMAGE_URL" >> $GI          echo "CURRENT_IMAGE=$IMAGE_URL" >> $GI          echo "CURRENT_IMAGE=$IMAGE_URL" >> $GI          echo "CURRENT_IMAGE=$IMAGE_URL"tpu          echo "CURRENT_IMAGE=$IMAGE_URL" >> $GI          echo "CURRENT_IO_KEY           echo "CURRENT_IMAGE=$IMAGE_URL" >> $GI          echo}}
+                                                                              OVER_EMAIL: ${{ secrets.APPROVER_EMAIL }}
+          WORKER_URL: ${          WORKER_URL: ${          WORKER_URL: ${        {{ sec          WORKER_URL: ${          WORKER_URL: ${          WOR<<          WORKER_URL: ${          WORKER_Ut os
+                                                                                                                                                                                                                                                                                                                                                                                       o                                                                                                                                                                                                                                                                                                                                          in                                                                                                                      VO_SENDER_NAME', '')
+          sender_email = os.environ.get('BREVO_SENDER_EMAIL', '')
+          approver_email = os.environ.get('APPROVER_EMAIL', '')
 
-      - name: Send Approval Email via Brevo
-        if: steps.vars.outputs.action != 'approve'
-        env:
-          BREVO_KEY: ${{ secrets.BREVO_KEY }}
-          BREVO_SENDER_NAME: ${{ secrets.BREVO_SENDER_NAME }}
-          BREVO_SENDER_EMAIL: ${{ secrets.BREVO_SENDER_EMAIL }}
-          APPROVER_EMAIL: ${{ secrets.APPROVER_EMAIL }}
-          WORKER_URL: ${{ secrets.APPROVAL_WORKER_BASE_URL }}
-          TOKEN: ${{ secrets.WORKER_SECRET_TOKEN }}
-        run: |
-          # Encode parameters
-          ENC_SUMMARY=$(node -e "console.log(encodeURIComponent(process.env.CURRENT_SUMMARY))")
-          ENC_IMAGE=$(node -e "console.log(encodeURIComponent(process.env.CURRENT_IMAGE))")
-          
-          APPROVE_LINK="$WORKER_URL?action=approve&token=$TOKEN&summary=$ENC_SUMMARY&image=$ENC_IMAGE"
-          REDO_ALL_LINK="$WORKER_URL?action=redo&token=$TOKEN"
-          REDO_IMAGE_LINK="$WORKER_URL?action=redo_image&token=$TOKEN&summary=$ENC_SUMMARY"
-
-          HTML_CONTENT="<h2>Daily IT News Draft</h2><p><b>Summary:</b> $CURRENT_SUMMARY</p><p><b>Image:</b><br><img src='$CURRENT_IMAGE' alt='News Image' style='max-width:100%; height:auto; max-height:400px; border-radius:8px;'/></p><br><br><a href='$APPROVE_LINK' style='padding:10px 15px;background:green;color:white;text-decoration:none;border-radius:5px;'>Approve & Post</a> &nbsp; <a href='$REDO_ALL_LINK' style='padding:10px 15px;background:red;color:white;text-decoration:none;border-radius:5px;'>Redo Text & Image</a> &nbsp; <a href='$REDO_IMAGE_LINK' style='padding:10px 15px;background:orange;color:white;text-decoration:none;border-radius:5px;'>Redo Image Only</a>"
-
-          curl -X POST "https://api.brevo.com/v3/smtp/email" \
-            -H "accept: application/json" \
-            -H "api-key: $BREVO_KEY" \
-            -H "content-type: application/json" \
-            -d "{
-              \"sender\": {\"name\":\"$BREVO_SENDER_NAME\", \"email\":\"$BREVO_SENDER_EMAIL\"},
-              \"to\": [{\"email\":\"$APPROVER_EMAIL\"}],
-              \"subject\": \"Approval Required: Daily IT News\",
-              \"htmlContent\": \"$HTML_CONTENT\"
-            }"
+          html = f"""
+          <h2>Daily IT News Draft</h2>
+          <p><strong>Summary</strong><br/>{summary}</p>
+          <p><strong>Hashtags</strong><br/>{hashtags}</p>
+          <p><strong>Source</strong><br/><a href='{link}'>{link}</a></p>
+          <p><strong>Date</strong><br/>{date}</p>
+          <p><strong>Image</strong><br/><img src='{image}' alt='News Image' style='max-width:100%;height:auto;max-height:400px;border-radius:8px;'/></p>
+          <div style='margin-top:20px;'>
+            <a href='{approve_link}' style='display:block;margin:8px 0;padding:12px 16px;background:#198754;color:#ffffff;text-decoration:none;border-radius:6px;font-weight:bold;'>Approve & Post</a>
+            <a href='{redo_story_link}' style='display:block;margin:8px 0;padding:12px 16px;background:#dc3545;color:#ffffff;text-decoration:none;border-radius:6px;font-weight:bold;'>Redo Story</a>
+            <a href='{redo_image_link}' style='display:block;margin:8p            <a href='{redo_image_link}' style='display:block;mcor            <a hrefadi            <a href='{redo_imagImage</a            <a href='{redo_image_link}' style='display{
+            <a href='{redo_image_link}' style='displ": sen            <a href='{redo_image_link}' style='displ": sen                           <a href='{redo_image_link}' stylws",
+                                                                                                                                                                                             om/v3/                                                                                                                                                                               
