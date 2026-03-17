@@ -210,13 +210,13 @@ jobs:
             echo "Uploading $ASSET_NAME to $IMAGE_REPO at $REMOTE_PATH"
             B64_CONTENT=$(base64 -w 0 cf_image.jpg || base64 cf_image.jpg | tr -d '\n')
             echo -n "$B64_CONTENT" > b64_content.txt
-            PAYLOAD=$(jq -n --arg message "Add $ASSET_NAME" --arg branch "$IMAGE_BRANCH" --rawfile content b64_content.txt '{message:$message,content:$content,branch:$branch}')
+            jq -n --arg message "Add $ASSET_NAME" --arg branch "$IMAGE_BRANCH" --rawfile content b64_content.txt '{message:$message,content:$content,branch:$branch}' > payload.json
 
             UPLOAD_RESP=$(curl -sS -X PUT "$API_URL" \
               -H "Authorization: Bearer $IMAGE_REPO_PAT" \
               -H "Accept: application/vnd.github+json" \
               -H "Content-Type: application/json" \
-              -d "$PAYLOAD" || true)
+              -d @payload.json || true)
 
             echo "Upload response: $UPLOAD_RESP"
             ASSET_URL=$(echo "$UPLOAD_RESP" | jq -r '.content.download_url // empty')
