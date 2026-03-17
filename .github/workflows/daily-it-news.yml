@@ -131,7 +131,7 @@ jobs:
         run: |
           #!/bin/bash
           # Use simple assignment to avoid Bash-only printf issues
-          PROMPT_TEXT="You are a deeply cynical, witty British IT professional (like BOFH). Read this news summary: $ARTICLE_SUMMARY. Write a highly sarcastic 2-3 sentence recap mocking the epic IT fail, using British slang and at least one pun. Output ONLY valid JSON: {\"summary\": \"<text>\", \"hashtags\": [\"#tag1\",\"#tag2\"]}."
+          PROMPT_TEXT="You are a UK-based IT journalist with dry humour. Read this news summary: $ARTICLE_SUMMARY. Write a concise 2-3 sentence recap highlighting the impact on British organisations or readers, with sharp wit but no fake accents. Output ONLY valid JSON: {\"summary\": \"<text>\", \"hashtags\": [\"#tag1\",\"#tag2\"]}."
 
           PAYLOAD=$(jq -n --arg msg "$PROMPT_TEXT" '{model: "nousresearch/hermes-3-llama-3.1-405b", messages: [{role: "user", content: $msg}], max_tokens:200}')
 
@@ -189,33 +189,13 @@ jobs:
           if file cf_image.jpg | grep -q -i "image"; then
             echo "Cloudflare image generated successfully."
             
-            # Upload to FreeImage.host using Node to avoid bash base64 constraints
-            node -e "
-            const fs = require('fs');
-            async function upload() {
-              const b64 = fs.readFileSync('cf_image.jpg').toString('base64');
-              const body = 'key=6d207e02198a847aa98d0a2a901485a5&action=upload&format=json&source=' + encodeURIComponent(b64);
-              try {
-                const res = await fetch('https://freeimage.host/api/1/upload', {
-                  method: 'POST',
-                  headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-                  body: body
-                });
-                console.log(await res.text());
-              } catch(e) {
-                console.log(JSON.stringify({error: e.message}));
-              }
-            }
-            upload();
-            " > upload_resp.json
-            
-            UPLOAD_URL=$(cat upload_resp.json | jq -r '.image.url // empty')
-            if [ -n "$UPLOAD_URL" ]; then
-              echo "CURRENT_IMAGE=$UPLOAD_URL" >> $GITHUB_ENV
+            # Upload to Catbox for a reliable public URL
+            CATBOX_RESP=$(curl -s -F "reqtype=fileupload" -F "userhash=" -F "fileToUpload=@cf_image.jpg" https://catbox.moe/user/api.php)
+            if echo "$CATBOX_RESP" | grep -q '^https://'; then
+              echo "CURRENT_IMAGE=$CATBOX_RESP" >> $GITHUB_ENV
               echo "IMAGE_SOURCE=Cloudflare AI" >> $GITHUB_ENV
             else
-              echo "Failed to parse FreeImage.host response:"
-              cat upload_resp.json
+              echo "Catbox upload failed: $CATBOX_RESP"
             fi
           else
             echo "Cloudflare API failed to return a valid image. Output was:"
