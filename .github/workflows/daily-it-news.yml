@@ -48,11 +48,21 @@ jobs:
         id: vars
         run: |
           echo "action=${{ github.event.inputs.action || '' }}" >> $GITHUB_OUTPUT
-          echo "summary=${{ github.event.inputs.summary || '' }}" >> $GITHUB_OUTPUT
-          echo "image=${{ github.event.inputs.image || '' }}" >> $GITHUB_OUTPUT
-          echo "hashtags=${{ github.event.inputs.hashtags || '' }}" >> $GITHUB_OUTPUT
-          echo "link=${{ github.event.inputs.link || '' }}" >> $GITHUB_OUTPUT
-          echo "date=${{ github.event.inputs.date || '' }}" >> $GITHUB_OUTPUT
+          cat << 'EOF' >> $GITHUB_OUTPUT
+          summary=${{ github.event.inputs.summary || '' }}
+          EOF
+          cat << 'EOF' >> $GITHUB_OUTPUT
+          image=${{ github.event.inputs.image || '' }}
+          EOF
+          cat << 'EOF' >> $GITHUB_OUTPUT
+          hashtags=${{ github.event.inputs.hashtags || '' }}
+          EOF
+          cat << 'EOF' >> $GITHUB_OUTPUT
+          link=${{ github.event.inputs.link || '' }}
+          EOF
+          cat << 'EOF' >> $GITHUB_OUTPUT
+          date=${{ github.event.inputs.date || '' }}
+          EOF
 
       - name: Install dependencies
         if: always() && steps.vars.outputs.action != 'redo_image'
