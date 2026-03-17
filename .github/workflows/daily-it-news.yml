@@ -111,7 +111,7 @@ jobs:
       - name: Generate AI Summary
         if: steps.vars.outputs.action != 'approve' && steps.vars.outputs.action != 'redo_image'
         run: |
-          PROMPT_TEXT=\"You are a sarcastic British IT support columnist. Given the news summary '$ARTICLE_SUMMARY', craft a witty British-leaning recap that highlights the epic IT fail and includes at least one pun. Respond ONLY with JSON matching: {\\\"summary\\\": \\\"<2-3 sentence summary>\\\", \\\"hashtags\\\": [\\\"#tag1\\\", \\\"#tag2\\\", \\\"#tag3\\\"] }.\"
+          PROMPT_TEXT="You are a sarcastic British IT support columnist. Given the news summary \"$ARTICLE_SUMMARY\", craft a witty British-leaning recap that highlights the epic IT fail and includes at least one pun. Respond ONLY with JSON matching: {\"summary\": \"<2-3 sentence summary>\", \"hashtags\": [\"#tag1\", \"#tag2\", \"#tag3\"] }."
           PAYLOAD=$(jq -n --arg msg "$PROMPT_TEXT" '{model: "nousresearch/hermes-3-llama-3.1-405b", messages: [{role: "user", content: $msg}], max_tokens: 200}')
 
           AI_RESPONSE=$(curl -s -X POST "https://openrouter.ai/api/v1/chat/completions" \
