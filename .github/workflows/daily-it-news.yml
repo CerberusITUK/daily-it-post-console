@@ -133,7 +133,7 @@ jobs:
         run: |
           #!/bin/bash
           # Use simple assignment to avoid Bash-only printf issues
-          PROMPT_TEXT="You are a seasoned, calm IT engineer observing the daily chaos of the tech industry. Read this news summary: $ARTICLE_SUMMARY. Write a short, slightly sarcastic, and relatable summary using observational humour (no marketing speak, just real engineer talk). Also, provide a witty, observational title. Output ONLY valid JSON in this exact format: {\"title\": \"<text>\", \"summary\": \"<text>\", \"hashtags\": [\"#tag1\",\"#tag2\"]}."
+          PROMPT_TEXT="You are a seasoned, calm IT engineer observing the daily chaos of the tech industry. Read this news summary: $ARTICLE_SUMMARY. Write a short, slightly sarcastic, and relatable summary using observational humour (no marketing speak, just real engineer talk). Also, provide a witty, observational title. Make the hashtags incredibly funny, biting, and sarcastic. Output ONLY valid JSON in this exact format: {\"title\": \"<text>\", \"summary\": \"<text>\", \"hashtags\": [\"#tag1\",\"#tag2\"]}."
 
           PAYLOAD=$(jq -n --arg msg "$PROMPT_TEXT" '{model: "nousresearch/hermes-3-llama-3.1-405b", messages: [{role: "user", content: $msg}], max_tokens:250}')
 
@@ -189,17 +189,57 @@ jobs:
         run: |
           #!/bin/bash
           SAFE_SUMMARY=$(echo "$CURRENT_SUMMARY" | tr '\n' ' ' | sed 's/["'"'"']//g')
-          CF_PROMPT=$(jq -n --arg msg "A funny British comic cartoon of IT fail: $SAFE_SUMMARY" '{"prompt":$msg}')
-          CF_URL="https://api.cloudflare.com/client/v4/accounts/${{ secrets.CF_AI_ACCOUNT_ID }}/ai/run/@cf/bytedance/stable-diffusion-xl-lightning"
-
-          # Cloudflare now returns raw binary image data, not JSON
-          curl -s --max-time 60 -X POST "$CF_URL" \
-            -H "Authorization: Bearer ${{ secrets.CF_AI_IMAGE_KEY }}" \
+          
+          # Use Kie.ai nano-banana-2
+          KIE_API_KEY="${{ secrets.KAI_IMAGE_API_KEY }}"
+          CREATE_PAYLOAD=$(jq -n --arg msg "A funny British comic cartoon of IT fail: $SAFE_SUMMARY" '{model: "nano-banana-2", input: {prompt: $msg}}')
+          
+          CREATE_RESP=$(curl -s -X POST "https://api.kie.ai/api/v1/jobs/createTask" \
+            -H "Authorization: Bearer $KIE_API_KEY" \
             -H "Content-Type: application/json" \
-            -d "$CF_PROMPT" > cf_image.jpg
+            -d "$CREATE_PAYLOAD")
+            
+          TASK_ID=$(echo "$CREATE_RESP" | jq -r '.data.taskId // empty')
+          
+          if [ -n "$TASK_ID" ]; then
+            echo "Nano Banana 2 task created: $TASK_ID"
+            
+            # Poll for completion
+            MAX_RETRIES=30
+            RETRY_COUNT=0
+            IMG_URL=""
+            
+            while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
+              sleep 5
+              STAT_RESP=$(curl -s "https://api.kie.ai/api/v1/jobs/recordInfo?taskId=$TASK_ID" -H "Authorization: Bearer $KIE_API_KEY")
+              STATE=$(echo "$STAT_RESP" | jq -r '.data.state // empty')
+              
+              if [ "$STATE" = "success" ]; then
+                # resultJson is a stringified JSON containing resultUrls
+                RESULT_STR=$(echo "$STAT_RESP" | jq -r '.data.resultJson // empty')
+                IMG_URL=$(echo "$RESULT_STR" | jq -r '.resultUrls[0] // empty')
+                break
+              elif [ "$STATE" = "failed" ] || [ "$STATE" = "error" ]; then
+                echo "Image generation failed: $STAT_RESP"
+                break
+              fi
+              
+              RETRY_COUNT=$((RETRY_COUNT+1))
+              echo "Polling... ($RETRY_COUNT/$MAX_RETRIES) State: $STATE"
+            done
+            
+            if [ -n "$IMG_URL" ]; then
+              echo "Downloading image from: $IMG_URL"
+              curl -s "$IMG_URL" > cf_image.jpg
+            else
+              echo "Failed to get image URL after polling."
+            fi
+          else
+            echo "Failed to create task: $CREATE_RESP"
+          fi
 
           if file cf_image.jpg | grep -q -i "image"; then
-            echo "Cloudflare image generated successfully."
+            echo "Image downloaded successfully."
 
             if [ -z "$IMAGE_REPO_PAT" ]; then
               echo "IMAGE_REPO_PAT secret is missing."
