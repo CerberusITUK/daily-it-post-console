@@ -88,13 +88,33 @@ jobs:
           client = Client()
           client.login(handle, app_password)
 
-          text_builder = client_utils.TextBuilder()
-          text_builder.text(summary + "\n\n")
+          link_text = "Read the full article" if link and link.startswith("http") else ""
+
+          # Calculate available characters (Bluesky max is 300)
+          overhead = 0
           if hashtags:
-              text_builder.text(hashtags + "\n\n")
+              overhead += len(hashtags) + 2 # +2 for \n\n
+          if link_text:
+              overhead += len(link_text) + 2
+
+          if len(summary) + overhead > 300:
+              max_summary_len = 300 - overhead - 3 # -3 for ...
+              summary = summary[:max_summary_len] + "..."
+
+          text_builder = client_utils.TextBuilder()
+          if hashtags or link_text:
+              text_builder.text(summary + "\n\n")
+          else:
+              text_builder.text(summary)
+              
+          if hashtags:
+              if link_text:
+                  text_builder.text(hashtags + "\n\n")
+              else:
+                  text_builder.text(hashtags)
           
           if link and link.startswith("http"):
-              text_builder.link("Read the full article", link)
+              text_builder.link(link_text, link)
 
           try:
               # Download image to memory
