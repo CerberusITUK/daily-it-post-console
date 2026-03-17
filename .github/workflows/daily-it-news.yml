@@ -72,10 +72,34 @@ jobs:
       - name: Generate Cartoon Image
         if: steps.vars.outputs.action != 'approve'
         run: |
-          IMAGE_URL=$(curl -s -X POST "https://api.craiyon.com/generate" \
+          CF_URL="https://api.cloudflare.com/client/v4/accounts/${{ secrets.CF_AI_ACCOUNT_ID }}/ai/run/@cf/bytedance/stable-diffusion-xl-lightning"
+          RESPONSE=$(curl -s -X POST $CF_URL \
+            -H "Authorization: Bearer ${{ secrets.CF_AI_TOKEN }}" \
             -H "Content-Type: application/json" \
-            -d "{\"prompt\":\"Cartoon image for this summary: $CURRENT_SUMMARY\"}" | jq -r '.images[0]')
-          echo "CURRENT_IMAGE=$IMAGE_URL" >> $GITHUB_ENV
+            -d "{\"prompt\":\"Cartoon style, colorful, comic book illustration of: $CURRENT_SUMMARY\"}")
+          
+          # Check if the response contains a valid base64 image
+          if echo "$RESPONSE" | grep -q "\"success\":true"; then
+            IMAGE_BASE64=$(echo "$RESPONSE" | jq -r '.result.image')
+            # Upload to a temporary image host (e.g., Freeimage.host or similar) or save it locally and host on a branch
+            # For email, we will save the base64 output, or better yet, since email clients handle embedded base64 poorly,
+            # we will upload it to imgBB for free hosting to get a URL.
+            
+            # Using ImgBB Free API (Requires a key. For now, since we just need an image URL, we will store the base64 locally 
+            # and perhaps skip displaying the image inline if we can't host it easily, or use a placeholder)
+            # Actually, to keep it simple, we will use a reliable free image generation API that returns a URL directly,
+            # or use Cloudflare Workers AI and upload to an image host. 
+            
+            # Let's try Pollinations.ai API for free direct URL generation which is very reliable:
+            PROMPT=$(node -e "console.log(encodeURIComponent('Cartoon style illustration: ' + '$CURRENT_SUMMARY'.substring(0, 100)))")
+            IMAGE_URL="https://image.pollinations.ai/prompt/$PROMPT"
+            echo "CURRENT_IMAGE=$IMAGE_URL" >> $GITHUB_ENV
+          else
+            # Fallback to Pollinations directly
+            PROMPT=$(node -e "console.log(encodeURIComponent('Cartoon style illustration: ' + '$CURRENT_SUMMARY'.substring(0, 100)))")
+            IMAGE_URL="https://image.pollinations.ai/prompt/$PROMPT"
+            echo "CURRENT_IMAGE=$IMAGE_URL" >> $GITHUB_ENV
+          fi
 
       - name: Send Approval Email via Brevo
         if: steps.vars.outputs.action != 'approve'
