@@ -103,12 +103,12 @@ jobs:
             # or use Cloudflare Workers AI and upload to an image host. 
             
             # Let's try Pollinations.ai API for free direct URL generation which is very reliable:
-            PROMPT=$(node -e "console.log(encodeURIComponent('Cartoon style illustration: ' + '$CURRENT_SUMMARY'.substring(0, 100)))")
+            PROMPT=$(node -e "console.log(encodeURIComponent('Cartoon style illustration: ' + process.env.CURRENT_SUMMARY.substring(0, 100)))")
             IMAGE_URL="https://image.pollinations.ai/prompt/$PROMPT"
             echo "CURRENT_IMAGE=$IMAGE_URL" >> $GITHUB_ENV
           else
             # Fallback to Pollinations directly
-            PROMPT=$(node -e "console.log(encodeURIComponent('Cartoon style illustration: ' + '$CURRENT_SUMMARY'.substring(0, 100)))")
+            PROMPT=$(node -e "console.log(encodeURIComponent('Cartoon style illustration: ' + process.env.CURRENT_SUMMARY.substring(0, 100)))")
             IMAGE_URL="https://image.pollinations.ai/prompt/$PROMPT"
             echo "CURRENT_IMAGE=$IMAGE_URL" >> $GITHUB_ENV
           fi
@@ -124,8 +124,8 @@ jobs:
           TOKEN: ${{ secrets.WORKER_SECRET_TOKEN }}
         run: |
           # Encode parameters
-          ENC_SUMMARY=$(node -e "console.log(encodeURIComponent('$CURRENT_SUMMARY'))")
-          ENC_IMAGE=$(node -e "console.log(encodeURIComponent('$CURRENT_IMAGE'))")
+          ENC_SUMMARY=$(node -e "console.log(encodeURIComponent(process.env.CURRENT_SUMMARY))")
+          ENC_IMAGE=$(node -e "console.log(encodeURIComponent(process.env.CURRENT_IMAGE))")
           
           APPROVE_LINK="$WORKER_URL?action=approve&token=$TOKEN&summary=$ENC_SUMMARY&image=$ENC_IMAGE"
           REDO_ALL_LINK="$WORKER_URL?action=redo&token=$TOKEN"
