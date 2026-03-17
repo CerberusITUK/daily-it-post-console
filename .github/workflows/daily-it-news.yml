@@ -209,7 +209,8 @@ jobs:
 
             echo "Uploading $ASSET_NAME to $IMAGE_REPO at $REMOTE_PATH"
             B64_CONTENT=$(base64 -w 0 cf_image.jpg || base64 cf_image.jpg | tr -d '\n')
-            PAYLOAD=$(jq -n --arg message "Add $ASSET_NAME" --arg content "$B64_CONTENT" --arg branch "$IMAGE_BRANCH" '{message:$message,content:$content,branch:$branch}')
+            echo -n "$B64_CONTENT" > b64_content.txt
+            PAYLOAD=$(jq -n --arg message "Add $ASSET_NAME" --arg branch "$IMAGE_BRANCH" --rawfile content b64_content.txt '{message:$message,content:$content,branch:$branch}')
 
             UPLOAD_RESP=$(curl -sS -X PUT "$API_URL" \
               -H "Authorization: Bearer $IMAGE_REPO_PAT" \
