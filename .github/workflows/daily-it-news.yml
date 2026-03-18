@@ -505,10 +505,10 @@ jobs:
           BREVO_SENDER_EMAIL: ${{ secrets.BREVO_SENDER_EMAIL }}
           APPROVER_EMAIL: ${{ secrets.APPROVER_EMAIL }}
           WORKER_URL: ${{ secrets.APPROVAL_WORKER_BASE_URL }}
-          TOKEN: ${{ secrets.WORKER_SECRET_TOKEN }}
+          SIGNING_SECRET: ${{ secrets.WORKER_SIGNING_SECRET }}
         run: |
           python3 - << 'EOF'
-          import os, json, urllib.parse
+          import os, json, urllib.parse, hmac, hashlib, time
           
           summary = os.environ.get("CURRENT_SUMMARY", "")
           hashtags = os.environ.get("HASHTAGS_TEXT", "")
@@ -517,13 +517,41 @@ jobs:
           date = os.environ.get("ARTICLE_DATE", "")
           source_name = os.environ.get("SOURCE_NAME", "Source")
           worker_url = os.environ.get("WORKER_URL", "")
-          token = os.environ.get("TOKEN", "")
+          signing_secret = os.environ.get("SIGNING_SECRET", "")
+
+          if not worker_url or not signing_secret:
+              raise SystemExit("Missing worker URL or signing secret")
 
           enc = lambda x: urllib.parse.quote(x)
+
+          def build_signed_link(action, summary_value="", image_value="", hashtags_value="", link_value="", date_value="", source_name_value="Source"):
+              expires = str(int(time.time()) + 3600)
+              payload = "\n".join([
+                  action,
+                  summary_value,
+                  image_value,
+                  hashtags_value,
+                  link_value,
+                  date_value,
+                  source_name_value,
+                  expires,
+              ])
+              signature = hmac.new(signing_secret.encode("utf-8"), payload.encode("utf-8"), hashlib.sha256).hexdigest()
+              return (
+                  f"{worker_url}?action={enc(action)}"
+                  f"&summary={enc(summary_value)}"
+                  f"&image={enc(image_value)}"
+                  f"&hashtags={enc(hashtags_value)}"
+                  f"&link={enc(link_value)}"
+                  f"&date={enc(date_value)}"
+                  f"&source_name={enc(source_name_value)}"
+                  f"&expires={enc(expires)}"
+                  f"&sig={enc(signature)}"
+              )
           
-          approve_link = f"{worker_url}?action=approve&token={token}&summary={enc(summary)}&image={enc(image)}&hashtags={enc(hashtags)}&link={enc(link)}&date={enc(date)}&source_name={enc(source_name)}"
-          redo_story_link = f"{worker_url}?action=redo&token={token}"
-          redo_image_link = f"{worker_url}?action=redo_image&token={token}&summary={enc(summary)}&hashtags={enc(hashtags)}&link={enc(link)}&date={enc(date)}&source_name={enc(source_name)}"
+          approve_link = build_signed_link("approve", summary, image, hashtags, link, date, source_name)
+          redo_story_link = build_signed_link("redo")
+          redo_image_link = build_signed_link("redo_image", summary, "", hashtags, link, date, source_name)
 
           html = f"""
           <h2>Daily IT News Draft</h2>

@@ -8,19 +8,41 @@ export default {
     const link = url.searchParams.get('link') || '';
     const date = url.searchParams.get('date') || '';
     const source_name = url.searchParams.get('source_name') || 'Source';
-    const token = url.searchParams.get('token');
+    const expires = url.searchParams.get('expires') || '';
+    const signature = url.searchParams.get('sig') || '';
 
-    // Simple security check
-    if (token !== env.WORKER_SECRET_TOKEN) {
-      return new Response('Unauthorized: Invalid token', { status: 401 });
+    const signingSecret = env.WORKER_SIGNING_SECRET || env.WORKER_SECRET_TOKEN;
+
+    if (!signingSecret) {
+      return new Response('Server misconfiguration', { status: 500 });
     }
 
     if (!['approve', 'redo', 'redo_image'].includes(action)) {
       return new Response('Invalid action', { status: 400 });
     }
 
-    // Call GitHub API to trigger the workflow
-    // We will update daily-it-news.yml to accept workflow_dispatch inputs
+    const expiresAt = Number.parseInt(expires, 10);
+    if (!Number.isFinite(expiresAt) || expiresAt < Math.floor(Date.now() / 1000)) {
+      return new Response('Unauthorized: Link expired', { status: 401 });
+    }
+
+    const signedPayload = [
+      action,
+      summary,
+      image,
+      hashtags,
+      link,
+      date,
+      source_name,
+      expires
+    ].join('\n');
+
+    const expectedSignature = await signPayload(signingSecret, signedPayload);
+
+    if (!timingSafeEqual(signature, expectedSignature)) {
+      return new Response('Unauthorized: Invalid signature', { status: 401 });
+    }
+
     const ghUrl = `https://api.github.com/repos/${env.GITHUB_OWNER}/${env.GITHUB_REPO}/actions/workflows/daily-it-news.yml/dispatches`;
     
     const body = {
@@ -58,3 +80,35 @@ export default {
     });
   }
 };
+
+async function signPayload(secret, payload) {
+  const encoder = new TextEncoder();
+  const key = await crypto.subtle.importKey(
+    'raw',
+    encoder.encode(secret),
+    { name: 'HMAC', hash: 'SHA-256' },
+    false,
+    ['sign']
+  );
+  const signature = await crypto.subtle.sign('HMAC', key, encoder.encode(payload));
+  return bufferToHex(signature);
+}
+
+function bufferToHex(buffer) {
+  return Array.from(new Uint8Array(buffer))
+    .map((byte) => byte.toString(16).padStart(2, '0'))
+    .join('');
+}
+
+function timingSafeEqual(left, right) {
+  if (!left || !right || left.length !== right.length) {
+    return false;
+  }
+
+  let mismatch = 0;
+  for (let i = 0; i < left.length; i += 1) {
+    mismatch |= left.charCodeAt(i) ^ right.charCodeAt(i);
+  }
+
+  return mismatch === 0;
+}
