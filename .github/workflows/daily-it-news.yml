@@ -676,7 +676,7 @@ jobs:
           SIGNING_SECRET: ${{ secrets.WORKER_SIGNING_SECRET }}
         run: |
           python3 - << 'EOF'
-          import os, json, urllib.parse, hmac, hashlib, time
+          import os, json, urllib.parse, hmac, hashlib, time, html
 
           summary = os.environ.get("CURRENT_SUMMARY", "")
           hashtags = os.environ.get("HASHTAGS_TEXT", "")
