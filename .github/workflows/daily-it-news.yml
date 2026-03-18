@@ -63,6 +63,9 @@ jobs:
           cat << 'EOF' >> $GITHUB_OUTPUT
           date=${{ github.event.inputs.date || '' }}
           EOF
+          cat << 'EOF' >> $GITHUB_OUTPUT
+          source_name=${{ github.event.inputs.source_name || '' }}
+          EOF
 
       - name: Install dependencies
         if: always() && steps.vars.outputs.action != 'redo_image'
@@ -78,6 +81,7 @@ jobs:
           BSKY_SUMMARY: ${{ steps.vars.outputs.summary }}
           BSKY_HASHTAGS: ${{ steps.vars.outputs.hashtags }}
           BSKY_LINK: ${{ steps.vars.outputs.link }}
+          BSKY_SOURCE_NAME: ${{ steps.vars.outputs.source_name }}
           BSKY_IMAGE_URL: ${{ steps.vars.outputs.image }}
         run: |
           python3 - << 'EOF'
@@ -91,6 +95,7 @@ jobs:
           summary = os.environ.get("BSKY_SUMMARY", "")
           hashtags = os.environ.get("BSKY_HASHTAGS", "")
           link = os.environ.get("BSKY_LINK", "")
+          source_name = os.environ.get("BSKY_SOURCE_NAME", "Source")
           image_url = os.environ.get("BSKY_IMAGE_URL", "")
 
           if not handle or not app_password:
@@ -101,16 +106,17 @@ jobs:
           client.login(handle, app_password)
 
           link_text = ""
-          source_name = "Source"
           if link:
-              if "theregister.com" in link:
-                  source_name = "The Register"
-              elif "bbc.co.uk" in link:
-                  source_name = "BBC News"
-              elif "bleepingcomputer.com" in link:
-                  source_name = "Bleeping Computer"
-              elif "computerweekly.com" in link:
-                  source_name = "Computer Weekly"
+              # Fallback if source_name is empty or just "Source"
+              if not source_name or source_name == "Source":
+                  if "theregister.com" in link:
+                      source_name = "The Register"
+                  elif "bbc.co.uk" in link:
+                      source_name = "BBC News"
+                  elif "bleepingcomputer.com" in link:
+                      source_name = "Bleeping Computer"
+                  elif "computerweekly.com" in link:
+                      source_name = "Computer Weekly"
               link_text = f"Source: {source_name}\n{link}"
 
           # Fail-safe: Bluesky has a strict 300 grapheme/byte limit. 
@@ -297,6 +303,7 @@ jobs:
               env.write(f"SUMMARY_TEXT={final_summary}\n")
               env.write(f"CURRENT_SUMMARY={final_summary}\n")
               env.write(f"HASHTAGS_TEXT={hashtags}\n")
+              env.write(f"SOURCE_NAME={source_name}\n")
               env.write(f"SOURCE_LINE=Source: {source_name}\n")
               env.write(f"ARTICLE_LINK={short_link}\n")
               env.write(f"DATE_LINE=Date: {article_date}\n")
@@ -309,6 +316,7 @@ jobs:
           echo "HASHTAGS_TEXT=${{ steps.vars.outputs.hashtags }}" >> $GITHUB_ENV
           echo "ARTICLE_LINK=${{ steps.vars.outputs.link }}" >> $GITHUB_ENV
           echo "ARTICLE_DATE=${{ steps.vars.outputs.date }}" >> $GITHUB_ENV
+          echo "SOURCE_NAME=${{ steps.vars.outputs.source_name }}" >> $GITHUB_ENV
           if [ -n "${{ steps.vars.outputs.image }}" ]; then
             echo "CURRENT_IMAGE=${{ steps.vars.outputs.image }}" >> $GITHUB_ENV
           fi
@@ -436,26 +444,27 @@ jobs:
         run: |
           python3 - << 'EOF'
           import os, json, urllib.parse
-
+          
           summary = os.environ.get("CURRENT_SUMMARY", "")
           hashtags = os.environ.get("HASHTAGS_TEXT", "")
           image = os.environ.get("CURRENT_IMAGE", "")
           link = os.environ.get("ARTICLE_LINK", "")
           date = os.environ.get("ARTICLE_DATE", "")
+          source_name = os.environ.get("SOURCE_NAME", "Source")
           worker_url = os.environ.get("WORKER_URL", "")
           token = os.environ.get("TOKEN", "")
 
           enc = lambda x: urllib.parse.quote(x)
-
-          approve_link = f"{worker_url}?action=approve&token={token}&summary={enc(summary)}&image={enc(image)}&hashtags={enc(hashtags)}&link={enc(link)}&date={enc(date)}"
+          
+          approve_link = f"{worker_url}?action=approve&token={token}&summary={enc(summary)}&image={enc(image)}&hashtags={enc(hashtags)}&link={enc(link)}&date={enc(date)}&source_name={enc(source_name)}"
           redo_story_link = f"{worker_url}?action=redo&token={token}"
-          redo_image_link = f"{worker_url}?action=redo_image&token={token}&summary={enc(summary)}&hashtags={enc(hashtags)}&link={enc(link)}&date={enc(date)}"
+          redo_image_link = f"{worker_url}?action=redo_image&token={token}&summary={enc(summary)}&hashtags={enc(hashtags)}&link={enc(link)}&date={enc(date)}&source_name={enc(source_name)}"
 
           html = f"""
           <h2>Daily IT News Draft</h2>
           <p><strong>Summary</strong><br>{summary}</p>
           <p><strong>Hashtags</strong><br>{hashtags}</p>
-          <p><strong>Source</strong><br><a href='{link}'>{link}</a></p>
+          <p><strong>Source</strong><br><a href='{link}'>{source_name}</a></p>
           <p><strong>Date</strong><br>{date}</p>
           <p><strong>Image</strong><br><img src='{image}' style='max-width:100%;max-height:400px;border-radius:8px'/></p>
           <div style='margin-top:20px'>
