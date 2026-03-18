@@ -66,7 +66,9 @@ jobs:
 
       - name: Install dependencies
         if: always() && steps.vars.outputs.action != 'redo_image'
-        run: pip install feedparser jq atproto
+        run: |
+          sudo apt-get update && sudo apt-get install -y imagemagick
+          pip install feedparser jq atproto
 
       - name: Post to Bluesky (Approved)
         if: steps.vars.outputs.action == 'approve'
