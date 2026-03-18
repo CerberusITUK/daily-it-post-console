@@ -79,6 +79,7 @@ jobs:
           pip install feedparser jq atproto
 
       - name: Post to Bluesky (Approved)
+        id: bluesky_post
         if: steps.vars.outputs.action == 'approve'
         env:
           BLUESKY_HANDLE: ${{ secrets.BLUESKY_USERNAME }}
@@ -96,7 +97,9 @@ jobs:
 
           handle = os.environ.get("BLUESKY_HANDLE")
           app_password = os.environ.get("BLUESKY_TOKEN")
-          
+          output_path = os.environ.get("GITHUB_OUTPUT")
+          error_message = ""
+
           summary = os.environ.get("BSKY_SUMMARY", "")
           hashtags = os.environ.get("BSKY_HASHTAGS", "")
           link = os.environ.get("BSKY_LINK", "")
@@ -173,8 +176,83 @@ jobs:
           except Exception as e:
               print(f"Failed to post image: {e}")
               print("Falling back to text-only post")
-              client.send_post(text_builder)
+              try:
+                  client.send_post(text_builder)
+              except Exception as fallback_error:
+                  error_message = str(fallback_error)
+                  raise
+          finally:
+              if output_path:
+                  safe_error = error_message.replace('%', '%25').replace('\n', '%0A').replace('\r', '%0D')
+                  with open(output_path, 'a', encoding='utf-8') as fh:
+                      fh.write(f"error={safe_error or 'none'}\n")
 
+          EOF
+
+      - name: Email on Bluesky failure
+        if: failure() && steps.vars.outputs.action == 'approve' && steps.bluesky_post.outcome == 'failure'
+        env:
+          BREVO_KEY: ${{ secrets.BREVO_KEY }}
+          BREVO_SENDER_NAME: ${{ secrets.BREVO_SENDER_NAME }}
+          BREVO_SENDER_EMAIL: ${{ secrets.BREVO_SENDER_EMAIL }}
+          APPROVER_EMAIL: ${{ secrets.APPROVER_EMAIL }}
+          SUMMARY_TEXT: ${{ steps.vars.outputs.summary }}
+          ARTICLE_LINK: ${{ steps.vars.outputs.link }}
+          SOURCE_NAME: ${{ steps.vars.outputs.source_name }}
+          BLUESKY_ERROR: ${{ steps.bluesky_post.outputs.error }}
+          GITHUB_RUN_ID: ${{ github.run_id }}
+          GITHUB_SERVER_URL: ${{ github.server_url }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+        run: |
+          python3 - <<'EOF'
+          import json
+          import os
+          import urllib.request
+
+          brevo_key = os.environ.get('BREVO_KEY')
+          sender_email = os.environ.get('BREVO_SENDER_EMAIL')
+          sender_name = os.environ.get('BREVO_SENDER_NAME', 'Daily IT Support')
+          approver_email = os.environ.get('APPROVER_EMAIL')
+          summary = os.environ.get('SUMMARY_TEXT', '')
+          link = os.environ.get('ARTICLE_LINK', '')
+          source_name = os.environ.get('SOURCE_NAME', 'Source')
+          error_message = os.environ.get('BLUESKY_ERROR') or 'Unknown error'
+          run_url = f"{os.environ.get('GITHUB_SERVER_URL')}/{os.environ.get('GITHUB_REPOSITORY')}/actions/runs/{os.environ.get('GITHUB_RUN_ID')}"
+
+          if not all([brevo_key, sender_email, approver_email]):
+              print('Missing Brevo configuration; cannot send failure email')
+              raise SystemExit(0)
+
+          html = f"""
+          <p><strong>Bluesky posting failed.</strong></p>
+          <p>Error: {error_message}</p>
+          <p>Summary: {summary}</p>
+          <p>Source: <a href='{link}'>{source_name}</a></p>
+          <p>Run logs: <a href='{run_url}'>View on GitHub</a></p>
+          """
+
+          payload = {
+              "sender": {"email": sender_email, "name": sender_name},
+              "to": [{"email": approver_email}],
+              "subject": "Daily IT News – Bluesky post failed",
+              "htmlContent": html
+          }
+
+          req = urllib.request.Request(
+              'https://api.brevo.com/v3/smtp/email',
+              data=json.dumps(payload).encode('utf-8'),
+              headers={
+                  'api-key': brevo_key,
+                  'Content-Type': 'application/json',
+                  'accept': 'application/json'
+              }
+          )
+
+          try:
+              with urllib.request.urlopen(req, timeout=15) as resp:
+                  print('Sent Bluesky failure email:', resp.status)
+          except Exception as email_error:
+              print('Failed to send Bluesky failure email:', email_error)
           EOF
 
       - name: Fetch RSS
@@ -187,14 +265,39 @@ jobs:
           import feedparser
 
           FEEDS = [
-              'https://www.theregister.com/headlines.atom',
-              'https://www.bbc.co.uk/news/technology/rss.xml',
-              'https://www.bleepingcomputer.com/feed/',
-              'https://gizmodo.com/tech/feed',
+              ('https://www.theregister.com/headlines.atom', 'uk'),
+              ('https://www.bbc.co.uk/news/technology/rss.xml', 'uk'),
+              ('https://www.bleepingcomputer.com/feed/', 'us'),
+              ('https://www.vice.com/en/topic/technology/rss', 'us'),
+              ('https://www.theverge.com/rss/index.xml', 'us'),
+              ('https://www.techradar.com/uk/rss', 'uk'),
+              ('https://www.euronews.com/rss?level=theme&name=technology', 'eu'),
+              ('https://www.wired.com/feed/tag/security/latest/rss', 'us'),
+              ('https://feeds.arstechnica.com/arstechnica/technology-lab', 'us'),
+              ('https://www.zdnet.com/topic/security/rss.xml', 'us'),
           ]
+
+          REGION_WEIGHTS = {
+              'uk': 2,
+              'eu': 2,
+              'us': 1,
+          }
 
           COMMON_MAN_KEYWORDS = [
               'outage', 'breach', 'down', 'fail', 'bug', 'hack', 'steal', 'stolen', 'error', 'scam', 'fraud', 'leak', 'crash', 'ransomware', 'bank', 'glitch'
+          ]
+
+          POLITICAL_TERMS = [
+              'election', 'parliament', 'senate', 'white house', 'downing street', 'campaign', 'vote', 'voted', 'ballot',
+              'minister', 'president', 'prime minister', 'politic', 'lawmaker', 'congress', 'referendum', 'party leader'
+          ]
+
+          MAJOR_TECH_TERMS = [
+              'microsoft', 'windows', 'azure', 'google', 'alphabet', 'android', 'chrome', 'apple', 'iphone', 'macbook',
+              'amazon', 'aws', 'meta', 'facebook', 'instagram', 'whatsapp', 'openai', 'nvidia', 'tesla', 'broadcom',
+              'oracle', 'salesforce', 'cloudflare', 'cisco', 'ibm', 'dell', 'hp', 'intel', 'arm', 'vodafone', 'bt',
+              'virgin media', 'sky broadband', 'uk government', 'national cyber security centre', 'nhs', 'uk telecom',
+              'uk isp', 'uk banking', 'lloyds', 'barclays', 'hsbc', 'natwest', 'shell', 'bp'
           ]
 
           now_utc = datetime.now(timezone.utc)
@@ -211,18 +314,26 @@ jobs:
                   return datetime(*entry.updated_parsed[:6], tzinfo=timezone.utc)
               return None
 
-          def calculate_score(entry):
+          def is_political(text):
+              return any(term in text for term in POLITICAL_TERMS)
+
+          def calculate_score(entry, region):
               title = entry.get('title', '').lower()
               summary = entry.get('summary', getattr(entry, 'description', '')).lower()
               text = title + " " + summary
-              score = 0
+              if is_political(text):
+                  return None
+              score = REGION_WEIGHTS.get(region, 0)
               for kw in COMMON_MAN_KEYWORDS:
                   if re.search(rf'\b{kw}\b', text):
                       score += 1
+              for company in MAJOR_TECH_TERMS:
+                  if company in text:
+                      score += 2
               return score
 
-          for url in FEEDS:
-              feed = feedparser.parse(url)
+          for feed_url, region in FEEDS:
+              feed = feedparser.parse(feed_url)
               if feed.entries:
                   # Save newest entry from this feed as a fallback
                   sorted_entries = sorted([e for e in feed.entries if entry_dt(e)], key=lambda x: entry_dt(x), reverse=True)
@@ -234,7 +345,9 @@ jobs:
                   if not dt:
                       continue
                   if dt >= window:
-                      score = calculate_score(entry)
+                      score = calculate_score(entry, region)
+                      if score is None:
+                          continue
                       item = (score, dt, entry)
                       all_recent.append(item)
                       if score > 0:
