@@ -300,7 +300,7 @@ jobs:
         run: |
           #!/bin/bash
           # Use simple assignment to avoid Bash-only printf issues
-          PROMPT_TEXT="You are a deeply cynical, highly sarcastic IT engineer. Read this news: $ARTICLE_SUMMARY. STRICT FORMAT REQUIREMENT: Your summary must be exactly 3 sentences long. Sentences 1 and 2 must sarcastically describe the core news in plain English that a non-technical person understands (e.g. 'the internet broke because someone tripped over a wire' instead of 'BGP routes dropped'). Sentence 3 must be a standalone, biting, hilarious punchline about the situation. Also provide a witty title and sarcastic hashtags. CRITICAL: The total combined length of the title and summary MUST be under 200 characters to leave room for the link. Make it punchy. Output ONLY valid JSON in this exact format: {\"title\": \"<text>\", \"summary\": \"<text>\", \"hashtags\": [\"#tag1\",\"#tag2\"]}."
+          PROMPT_TEXT="You are a deeply cynical, highly sarcastic IT engineer. Read this news: $ARTICLE_SUMMARY. STRICT FORMAT REQUIREMENT: Your summary must be exactly 3 sentences long. Sentences 1 and 2 must sarcastically describe the core news in plain English that a non-technical person understands (e.g. 'the internet broke because someone tripped over a wire' instead of 'BGP routes dropped'). Sentence 3 must be a standalone, biting, hilarious punchline about the situation. Also provide a witty title and sarcastic hashtags. Negative prompt: no offensive stereotypes, no derogatory terms, no caricatured ethnicity. CRITICAL: The total combined length of the title and summary MUST be under 200 characters to leave room for the link. Make it punchy. Output ONLY valid JSON in this exact format: {\"title\": \"<text>\", \"summary\": \"<text>\", \"hashtags\": [\"#tag1\",\"#tag2\"]}."
 
           PAYLOAD=$(jq -n --arg msg "$PROMPT_TEXT" '{model: "nousresearch/hermes-3-llama-3.1-405b", messages: [{role: "user", content: $msg}], max_tokens:250}')
 
@@ -398,7 +398,7 @@ jobs:
           
           # Use Kie.ai nano-banana-2
           KIE_API_KEY="${{ secrets.KAI_IMAGE_API_KEY }}"
-          CREATE_PAYLOAD=$(jq -n --arg msg "A funny full-colour single-panel British comic cartoon of IT fail: $SAFE_SUMMARY. Keep words and text minimal; only include text if it adds comedic value. Any text in the image must make sense in English and be correctly spelled. Must be in vivid color." '{model: "nano-banana-2", input: {prompt: $msg}}')
+          CREATE_PAYLOAD=$(jq -n --arg msg "A funny full-colour single-panel British comic cartoon of IT fail: $SAFE_SUMMARY. Keep words and text minimal; only include text if it adds comedic value. Any text in the image must make sense in English and be correctly spelled. Negative prompt: no offensive stereotypes, no derogatory terms, no caricatured ethnicity. Must be in vivid color." '{model: "nano-banana-2", input: {prompt: $msg}}')
           
           CREATE_RESP=$(curl -s -X POST "https://api.kie.ai/api/v1/jobs/createTask" \
             -H "Authorization: Bearer $KIE_API_KEY" \
