@@ -1,0 +1,12 @@
+.env
+.env.*
+!.env.example
+venv/
+node_modules/
+not-needed/
+tmp/
+.DS_Store
+*.pyc
+__pycache__/
+worker/.wrangler/
+*.old
