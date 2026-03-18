@@ -35,6 +35,11 @@ on:
         required: false
         default: ""
         type: string
+      source_name:
+        description: "Current article source name"
+        required: false
+        default: "Source"
+        type: string
 
 jobs:
   post-news:
