@@ -115,8 +115,8 @@ jobs:
                       source_name = "BBC News"
                   elif "bleepingcomputer.com" in link:
                       source_name = "Bleeping Computer"
-                  elif "computerweekly.com" in link:
-                      source_name = "Computer Weekly"
+                  elif "gizmodo.com" in link:
+                      source_name = "Gizmodo"
               link_text = f"Source: {source_name}\n{link}"
 
           # Fail-safe: Bluesky has a strict 300 grapheme/byte limit. 
@@ -173,9 +173,8 @@ jobs:
       - name: Fetch RSS
         if: steps.vars.outputs.action != 'approve' && steps.vars.outputs.action != 'redo_image'
         run: |
-          #!/bin/bash
           python3 - << 'EOF'
-          import os, random
+          import os, random, re
           from datetime import datetime, timezone, timedelta
           from zoneinfo import ZoneInfo
           import feedparser
@@ -184,14 +183,19 @@ jobs:
               'https://www.theregister.com/headlines.atom',
               'https://www.bbc.co.uk/news/technology/rss.xml',
               'https://www.bleepingcomputer.com/feed/',
-              'https://www.computerweekly.com/rss/All-Computer-Weekly-content.xml',
+              'https://gizmodo.com/tech/feed',
+          ]
+
+          COMMON_MAN_KEYWORDS = [
+              'outage', 'breach', 'down', 'fail', 'bug', 'hack', 'steal', 'stolen', 'error', 'scam', 'fraud', 'leak', 'crash', 'ransomware', 'bank', 'glitch'
           ]
 
           now_utc = datetime.now(timezone.utc)
           window = now_utc - timedelta(hours=24)
-          recent_entries = []
-          fallback_entry = None
-          fallback_dt = None
+          
+          all_recent = []
+          high_priority = []
+          fallback_entries = []
 
           def entry_dt(entry):
               if getattr(entry, 'published_parsed', None):
@@ -200,22 +204,49 @@ jobs:
                   return datetime(*entry.updated_parsed[:6], tzinfo=timezone.utc)
               return None
 
+          def calculate_score(entry):
+              title = entry.get('title', '').lower()
+              summary = entry.get('summary', getattr(entry, 'description', '')).lower()
+              text = title + " " + summary
+              score = 0
+              for kw in COMMON_MAN_KEYWORDS:
+                  if re.search(rf'\b{kw}\b', text):
+                      score += 1
+              return score
+
           for url in FEEDS:
               feed = feedparser.parse(url)
+              if feed.entries:
+                  # Save newest entry from this feed as a fallback
+                  sorted_entries = sorted([e for e in feed.entries if entry_dt(e)], key=lambda x: entry_dt(x), reverse=True)
+                  if sorted_entries:
+                      fallback_entries.append((entry_dt(sorted_entries[0]), sorted_entries[0]))
+
               for entry in feed.entries:
                   dt = entry_dt(entry)
                   if not dt:
                       continue
                   if dt >= window:
-                      recent_entries.append((dt, entry))
-                  if fallback_dt is None or dt > fallback_dt:
-                      fallback_dt = dt
-                      fallback_entry = entry
+                      score = calculate_score(entry)
+                      item = (score, dt, entry)
+                      all_recent.append(item)
+                      if score > 0:
+                          high_priority.append(item)
 
-          if not recent_entries and fallback_entry is None:
+          if not all_recent and not fallback_entries:
               raise SystemExit('No RSS entries available')
 
-          chosen_dt, chosen_entry = (random.choice(recent_entries) if recent_entries else (fallback_dt, fallback_entry))
+          if high_priority:
+              # Sort by score descending
+              high_priority.sort(key=lambda x: x[0], reverse=True)
+              top_score = high_priority[0][0]
+              # Pick randomly from the items that share the top score
+              best_candidates = [x for x in high_priority if x[0] == top_score]
+              chosen_dt, chosen_entry = random.choice(best_candidates)[1:]
+          elif all_recent:
+              chosen_dt, chosen_entry = random.choice(all_recent)[1:]
+          else:
+              chosen_dt, chosen_entry = random.choice(fallback_entries)
 
           summary = getattr(chosen_entry, 'summary', getattr(chosen_entry, 'description', '')) or ''
           summary = ' '.join(summary.split())
@@ -269,8 +300,8 @@ jobs:
               source_name = "BBC News"
           elif "bleepingcomputer.com" in article_link:
               source_name = "Bleeping Computer"
-          elif "computerweekly.com" in article_link:
-              source_name = "Computer Weekly"
+          elif "gizmodo.com" in article_link:
+              source_name = "Gizmodo"
 
           try:
               content = json.loads(resp)["choices"][0]["message"]["content"]
