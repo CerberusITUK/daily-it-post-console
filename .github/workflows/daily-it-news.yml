@@ -449,13 +449,30 @@ jobs:
           export AI_RESPONSE
 
           python3 - << 'EOF'
-          import os, json, re
+          import os, json, re, urllib.parse
 
           resp = os.environ.get("AI_RESPONSE", "")
           article_link = os.environ.get("ARTICLE_LINK", "https://www.theregister.com/")
           article_date = os.environ.get("ARTICLE_DATE", "")
 
           # Determine Source Name
+          def hostname_to_name(url: str) -> str:
+              try:
+                  host = urllib.parse.urlparse(url).hostname or ""
+              except ValueError:
+                  host = ""
+              host = host.lower().lstrip('www.')
+              if not host:
+                  return "Source"
+              parts = host.split('.')
+              if len(parts) >= 3 and parts[-2] in {"co", "com", "org", "net", "gov"}:
+                  name_part = parts[-3]
+              elif len(parts) >= 2:
+                  name_part = parts[-2]
+              else:
+                  name_part = parts[0]
+              return name_part.replace('-', ' ').title()
+
           source_name = "Source"
           if "theregister.com" in article_link:
               source_name = "The Register"
@@ -465,6 +482,10 @@ jobs:
               source_name = "Bleeping Computer"
           elif "gizmodo.com" in article_link:
               source_name = "Gizmodo"
+          else:
+              derived = hostname_to_name(article_link)
+              if derived:
+                  source_name = derived
 
           try:
               content = json.loads(resp)["choices"][0]["message"]["content"]
