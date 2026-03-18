@@ -100,7 +100,18 @@ jobs:
           client = Client()
           client.login(handle, app_password)
 
-          link_text = "Read the full article" if link and link.startswith("http") else ""
+          link_text = ""
+          source_name = "Source"
+          if link:
+              if "theregister.com" in link:
+                  source_name = "The Register"
+              elif "bbc.co.uk" in link:
+                  source_name = "BBC News"
+              elif "bleepingcomputer.com" in link:
+                  source_name = "Bleeping Computer"
+              elif "computerweekly.com" in link:
+                  source_name = "Computer Weekly"
+              link_text = f"Source: {source_name}\n{link}"
 
           # Fail-safe: Bluesky has a strict 300 grapheme/byte limit. 
           # We truncate the summary here if the AI ignored our prompt length constraints.
@@ -227,32 +238,69 @@ jobs:
             -H "Content-Type: application/json" \
             -d "$PAYLOAD")
 
-          CONTENT=$(echo "$AI_RESPONSE" | jq -c 'try (.choices[0].message.content | fromjson) catch empty')
-          if [ -z "$CONTENT" ] || [ "$CONTENT" = "null" ]; then
-            RAW_CONTENT=$(echo "$AI_RESPONSE" | jq -r '.choices[0].message.content')
-            echo "AI parse failed, using raw text"
-            SUMMARY_TEXT="$RAW_CONTENT"
-            HASHTAGS_LINE="#IT #News"
-          else
-            AI_TITLE=$(echo "$CONTENT" | jq -r '.title // empty')
-            AI_SUM=$(echo "$CONTENT" | jq -r '.summary // empty')
-            if [ -n "$AI_TITLE" ]; then
-              SUMMARY_TEXT="$AI_TITLE - $AI_SUM"
-            else
-              SUMMARY_TEXT="$AI_SUM"
-            fi
-            HASHTAGS_LINE=$(echo "$CONTENT" | jq -r '.hashtags | join(" ") // "#IT #News"')
-          fi
+          export AI_RESPONSE
 
-          # Normalize
-          SUMMARY_TEXT=$(echo "$SUMMARY_TEXT" | tr '\n' ' ' | sed 's/\s\+/ /g')
-          HASHTAGS_LINE=$(echo "$HASHTAGS_LINE" | sed 's/\s\+/ /g')
+          python3 - << 'EOF'
+          import os, json, re, urllib.request, urllib.parse
 
-          echo "SUMMARY_TEXT=$SUMMARY_TEXT" >> $GITHUB_ENV
-          echo "CURRENT_SUMMARY=$SUMMARY_TEXT" >> $GITHUB_ENV
-          echo "HASHTAGS_TEXT=$HASHTAGS_LINE" >> $GITHUB_ENV
-          echo "SOURCE_LINE=Source: $ARTICLE_LINK" >> $GITHUB_ENV
-          echo "DATE_LINE=Date: $ARTICLE_DATE" >> $GITHUB_ENV
+          resp = os.environ.get("AI_RESPONSE", "")
+          article_link = os.environ.get("ARTICLE_LINK", "https://www.theregister.com/")
+          article_date = os.environ.get("ARTICLE_DATE", "")
+          
+          # Shorten URL
+          try:
+              api_url = "http://tinyurl.com/api-create.php?url=" + urllib.parse.quote(article_link)
+              req = urllib.request.urlopen(api_url)
+              short_link = req.read().decode('utf-8')
+          except Exception:
+              short_link = article_link
+
+          # Determine Source Name
+          source_name = "Source"
+          if "theregister.com" in article_link:
+              source_name = "The Register"
+          elif "bbc.co.uk" in article_link:
+              source_name = "BBC News"
+          elif "bleepingcomputer.com" in article_link:
+              source_name = "Bleeping Computer"
+          elif "computerweekly.com" in article_link:
+              source_name = "Computer Weekly"
+
+          try:
+              content = json.loads(resp)["choices"][0]["message"]["content"]
+              match = re.search(r'\{.*\}', content, re.DOTALL)
+              if match:
+                  data = json.loads(match.group(0))
+                  title = data.get("title", "").strip()
+                  summary = data.get("summary", "").strip()
+                  hashtags = " ".join(data.get("hashtags", []))
+                  
+                  if title and summary:
+                      final_summary = f"{title}. {summary}"
+                  elif title:
+                      final_summary = title
+                  else:
+                      final_summary = summary
+                      
+                  # Clean newlines
+                  final_summary = " ".join(final_summary.split())
+                  hashtags = " ".join(hashtags.split())
+              else:
+                  # Fallback if AI didn't return valid JSON structure at all
+                  final_summary = " ".join(content.split())
+                  hashtags = "#IT #News"
+          except Exception as e:
+              final_summary = "Failed to parse AI summary."
+              hashtags = "#IT #News"
+
+          with open(os.environ['GITHUB_ENV'], 'a') as env:
+              env.write(f"SUMMARY_TEXT={final_summary}\n")
+              env.write(f"CURRENT_SUMMARY={final_summary}\n")
+              env.write(f"HASHTAGS_TEXT={hashtags}\n")
+              env.write(f"SOURCE_LINE=Source: {source_name}\n")
+              env.write(f"ARTICLE_LINK={short_link}\n")
+              env.write(f"DATE_LINE=Date: {article_date}\n")
+          EOF
 
       - name: Use Existing Summary for Redo Image
         if: steps.vars.outputs.action == 'redo_image'
@@ -277,7 +325,7 @@ jobs:
           
           # Use Kie.ai nano-banana-2
           KIE_API_KEY="${{ secrets.KAI_IMAGE_API_KEY }}"
-          CREATE_PAYLOAD=$(jq -n --arg msg "A funny British comic cartoon of IT fail: $SAFE_SUMMARY" '{model: "nano-banana-2", input: {prompt: $msg}}')
+          CREATE_PAYLOAD=$(jq -n --arg msg "A funny British comic cartoon of IT fail: $SAFE_SUMMARY. No words, no text, no captions." '{model: "nano-banana-2", input: {prompt: $msg}}')
           
           CREATE_RESP=$(curl -s -X POST "https://api.kie.ai/api/v1/jobs/createTask" \
             -H "Authorization: Bearer $KIE_API_KEY" \
