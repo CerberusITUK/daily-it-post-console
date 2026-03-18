@@ -676,13 +676,13 @@ jobs:
           SIGNING_SECRET: ${{ secrets.WORKER_SIGNING_SECRET }}
         run: |
           python3 - << 'EOF'
-          import os, json, urllib.parse, hmac, hashlib, time
+          import os, json, urllib.parse, hmac, hashlib, time, html
           
           summary = os.environ.get("CURRENT_SUMMARY", "")
-          hashtags = os.environ.get("HASHTAGS_TEXT", "")
-          image = os.environ.get("CURRENT_IMAGE", "")
-          link = os.environ.get("ARTICLE_LINK", "")
-          date = os.environ.get("ARTICLE_DATE", "")
+          worker_url = os.environ.get("WORKER_URL", "")
+          signing_secret = os.environ.get("SIGNING_SECRET", "")
+          article_context = os.environ.get("ARTICLE_SUMMARY", "")
+          ai_prompt = os.environ.get("AI_PROMPT_TEXT", "")
           source_name = os.environ.get("SOURCE_NAME", "Source")
           worker_url = os.environ.get("WORKER_URL", "")
           signing_secret = os.environ.get("SIGNING_SECRET", "")
@@ -721,8 +721,8 @@ jobs:
           redo_story_link = build_signed_link("redo")
           redo_image_link = build_signed_link("redo_image", summary, "", hashtags, link, date, source_name)
 
-          escaped_context = article_context.replace('\n', '<br>')
-          escaped_prompt = ai_prompt.replace('\n', '<br>')
+          escaped_context = html.escape(article_context).replace('\n', '<br>') if article_context else 'No context captured.'
+          escaped_prompt = html.escape(ai_prompt).replace('\n', '<br>') if ai_prompt else 'No prompt captured.'
           html = f"""
           <h2>Daily IT News Draft</h2>
           <p><strong>Summary</strong><br>{summary}</p>
