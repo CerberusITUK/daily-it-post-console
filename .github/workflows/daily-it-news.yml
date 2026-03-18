@@ -290,7 +290,7 @@ jobs:
             echo "Nano Banana 2 task created: $TASK_ID"
             
             # Poll for completion
-            MAX_RETRIES=30
+            MAX_RETRIES=60
             RETRY_COUNT=0
             IMG_URL=""
             
@@ -323,7 +323,7 @@ jobs:
             echo "Failed to create task: $CREATE_RESP"
           fi
 
-          if file cf_image.jpg | grep -q -i "image"; then
+          if [ -f cf_image.jpg ] && file cf_image.jpg | grep -q -i "image"; then
             echo "Image downloaded successfully."
             
             # Compress image to ensure it is under Bluesky's 976KB limit
