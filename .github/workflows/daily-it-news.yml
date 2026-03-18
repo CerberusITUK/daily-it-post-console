@@ -323,6 +323,12 @@ jobs:
 
           if file cf_image.jpg | grep -q -i "image"; then
             echo "Image downloaded successfully."
+            
+            # Compress image to ensure it is under Bluesky's 976KB limit
+            # GitHub Ubuntu runners have ImageMagick pre-installed
+            echo "Compressing image..."
+            mogrify -quality 80 cf_image.jpg
+            echo "Compressed image size: $(ls -lh cf_image.jpg | awk '{print $5}')"
 
             if [ -z "$IMAGE_REPO_PAT" ]; then
               echo "IMAGE_REPO_PAT secret is missing."
