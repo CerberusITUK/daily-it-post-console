@@ -4,6 +4,10 @@ export default {
     const action = url.searchParams.get('action'); // 'approve', 'redo', 'redo_image'
     const summary = url.searchParams.get('summary') || '';
     const image = url.searchParams.get('image') || '';
+    const hashtags = url.searchParams.get('hashtags') || '';
+    const link = url.searchParams.get('link') || '';
+    const date = url.searchParams.get('date') || '';
+    const source_name = url.searchParams.get('source_name') || 'Source';
     const token = url.searchParams.get('token');
 
     // Simple security check
@@ -24,7 +28,11 @@ export default {
       inputs: {
         action: action,
         summary: summary,
-        image: image
+        image: image,
+        hashtags: hashtags,
+        link: link,
+        date: date,
+        source_name: source_name
       }
     };
 
