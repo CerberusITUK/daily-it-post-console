@@ -253,9 +253,36 @@ jobs:
           else:
               chosen_dt, chosen_entry = random.choice(fallback_entries)
 
-          summary = getattr(chosen_entry, 'summary', getattr(chosen_entry, 'description', '')) or ''
-          summary = ' '.join(summary.split())
           link = getattr(chosen_entry, 'link', 'https://www.theregister.com/')
+          
+          # Try to get as much text as possible for the AI
+          summary_text = getattr(chosen_entry, 'summary', getattr(chosen_entry, 'description', '')) or ''
+          if hasattr(chosen_entry, 'content'):
+              summary_text = chosen_entry.content[0].value
+              
+          # If the RSS text is short, try to scrape the page
+          if len(summary_text) < 500:
+              import urllib.request
+              try:
+                  req = urllib.request.Request(link, headers={'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)'})
+                  html = urllib.request.urlopen(req, timeout=5).read().decode('utf-8', errors='ignore')
+                  paragraphs = re.findall(r'<p[^>]*>(.*?)</p>', html, re.IGNORECASE | re.DOTALL)
+                  clean_text = []
+                  for p in paragraphs:
+                      p = re.sub(r'<[^>]+>', '', p)
+                      p = p.replace('&quot;', '"').replace('&apos;', "'").replace('&#39;', "'").replace('&amp;', '&').replace('&lt;', '<').replace('&gt;', '>')
+                      p = ' '.join(p.split())
+                      if len(p) > 50 and '.' in p:
+                          clean_text.append(p)
+                  scraped_text = ' '.join(clean_text)
+                  if len(scraped_text) > len(summary_text):
+                      summary_text = scraped_text
+              except Exception:
+                  pass
+                  
+          summary_text = ' '.join(summary_text.split())
+          # Limit to 3000 chars to avoid breaking bash/API limits
+          summary = summary_text[:3000]
 
           dt_local = chosen_dt.astimezone(ZoneInfo('Europe/London')) if chosen_dt else datetime.now(ZoneInfo('Europe/London'))
           formatted_date = dt_local.strftime('%d/%m/%Y')
@@ -271,7 +298,7 @@ jobs:
         run: |
           #!/bin/bash
           # Use simple assignment to avoid Bash-only printf issues
-          PROMPT_TEXT="You are a seasoned, calm IT engineer observing the daily chaos of the tech industry. Read this news summary: $ARTICLE_SUMMARY. Write a short, slightly sarcastic summary using observational humour. CRITICAL TONE INSTRUCTION: The summary MUST be easily understood by the 'common man' who has no technical IT knowledge. Avoid jargon, acronyms, or deep technical concepts; explain the core issue in plain, relatable English (e.g. 'the internet broke' instead of 'BGP routes dropped'). Also, provide a witty title and funny, biting hashtags. CRITICAL: The total combined length of the title and summary MUST be under 200 characters to leave room for the link. Output ONLY valid JSON in this exact format: {\"title\": \"<text>\", \"summary\": \"<text>\", \"hashtags\": [\"#tag1\",\"#tag2\"]}."
+          PROMPT_TEXT="You are a seasoned, calm IT engineer observing the daily chaos of the tech industry. Read this news article text: $ARTICLE_SUMMARY. Write a short, slightly sarcastic summary using observational humour. CRITICAL TONE INSTRUCTION: The summary MUST be easily understood by the 'common man' who has no technical IT knowledge. Avoid jargon, acronyms, or deep technical concepts; explain the core issue in plain, relatable English (e.g. 'the internet broke' instead of 'BGP routes dropped'). Also, provide a witty title and funny, biting hashtags. CRITICAL: The total combined length of the title and summary MUST be under 200 characters to leave room for the link. Output ONLY valid JSON in this exact format: {\"title\": \"<text>\", \"summary\": \"<text>\", \"hashtags\": [\"#tag1\",\"#tag2\"]}."
 
           PAYLOAD=$(jq -n --arg msg "$PROMPT_TEXT" '{model: "nousresearch/hermes-3-llama-3.1-405b", messages: [{role: "user", content: $msg}], max_tokens:250}')
 
