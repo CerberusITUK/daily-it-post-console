@@ -527,50 +527,62 @@ jobs:
           
           # Use Kie.ai nano-banana-2
           KIE_API_KEY="${{ secrets.KAI_IMAGE_API_KEY }}"
-          CREATE_PAYLOAD=$(jq -n --arg msg "A funny full-colour single-panel British comic cartoon of IT fail: $SAFE_SUMMARY. Keep words and text minimal; only include text if it adds comedic value. Any text in the image must make sense in English and be correctly spelled. Negative prompt: no offensive stereotypes, no derogatory terms, no caricatured ethnicity, never include slurs or words like 'Nork'. Must be in vivid color." '{model: "nano-banana-2", input: {prompt: $msg}}')
+          MAX_ATTEMPTS=5
+          POLL_LIMIT=20
+          IMG_URL=""
+          ATTEMPT=1
           
-          CREATE_RESP=$(curl -s -X POST "https://api.kie.ai/api/v1/jobs/createTask" \
-            -H "Authorization: Bearer $KIE_API_KEY" \
-            -H "Content-Type: application/json" \
-            -d "$CREATE_PAYLOAD")
-            
-          TASK_ID=$(echo "$CREATE_RESP" | jq -r '.data.taskId // empty')
-          
-          if [ -n "$TASK_ID" ]; then
+          while [ $ATTEMPT -le $MAX_ATTEMPTS ] && [ -z "$IMG_URL" ]; do
+            echo "Attempt $ATTEMPT/$MAX_ATTEMPTS to generate image"
+            CREATE_PAYLOAD=$(jq -n --arg msg "A funny full-colour single-panel British comic cartoon of IT fail: $SAFE_SUMMARY. Keep words and text minimal; only include text if it adds comedic value. Any text in the image must make sense in English and be correctly spelled. Negative prompt: no offensive stereotypes, no derogatory terms, no caricatured ethnicity, never include slurs or words like 'Nork'. Must be in vivid color." '{model: "nano-banana-2", input: {prompt: $msg}}')
+
+            CREATE_RESP=$(curl -s -X POST "https://api.kie.ai/api/v1/jobs/createTask" \
+              -H "Authorization: Bearer $KIE_API_KEY" \
+              -H "Content-Type: application/json" \
+              -d "$CREATE_PAYLOAD")
+
+            TASK_ID=$(echo "$CREATE_RESP" | jq -r '.data.taskId // empty')
+
+            if [ -z "$TASK_ID" ]; then
+              echo "Failed to create task: $CREATE_RESP"
+              ATTEMPT=$((ATTEMPT+1))
+              continue
+            fi
+
             echo "Nano Banana 2 task created: $TASK_ID"
-            
-            # Poll for completion
-            MAX_RETRIES=5
+
             RETRY_COUNT=0
-            IMG_URL=""
-            
-            while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
+            while [ $RETRY_COUNT -lt $POLL_LIMIT ]; do
               sleep 5
               STAT_RESP=$(curl -s "https://api.kie.ai/api/v1/jobs/recordInfo?taskId=$TASK_ID" -H "Authorization: Bearer $KIE_API_KEY")
               STATE=$(echo "$STAT_RESP" | jq -r '.data.state // empty')
-              
+
               if [ "$STATE" = "success" ]; then
-                # resultJson is a stringified JSON containing resultUrls
                 RESULT_STR=$(echo "$STAT_RESP" | jq -r '.data.resultJson // empty')
                 IMG_URL=$(echo "$RESULT_STR" | jq -r '.resultUrls[0] // empty')
                 break
-              elif [ "$STATE" = "failed" ] || [ "$STATE" = "error" ]; then
-                echo "Image generation failed: $STAT_RESP"
+              elif [ "$STATE" = "failed" ] || [ "$STATE" = "error" ] || [ "$STATE" = "rejected" ]; then
+                echo "Image generation failed with state '$STATE': $STAT_RESP"
                 break
               fi
-              
+
               RETRY_COUNT=$((RETRY_COUNT+1))
-              echo "Polling... ($RETRY_COUNT/$MAX_RETRIES) State: $STATE"
+              echo "Polling... ($RETRY_COUNT/$POLL_LIMIT) State: $STATE"
             done
-            
+
             if [ -n "$IMG_URL" ]; then
               echo "Downloading image from: $IMG_URL"
               curl -s "$IMG_URL" > cf_image.jpg
+              break
             else
-              echo "Failed to get image URL after polling."
+              echo "No image URL after polling for task $TASK_ID."
             fi
-          else
-            echo "Failed to create task: $CREATE_RESP"
+
+            ATTEMPT=$((ATTEMPT+1))
+          done
+
+          if [ -z "$IMG_URL" ]; then
+            echo "Image generation failed after $MAX_ATTEMPTS attempts."
           fi
 
           if [ -f cf_image.jpg ] && file cf_image.jpg | grep -q -i "image"; then
