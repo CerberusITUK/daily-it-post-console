@@ -396,7 +396,7 @@ jobs:
           
           # Use Kie.ai nano-banana-2
           KIE_API_KEY="${{ secrets.KAI_IMAGE_API_KEY }}"
-          CREATE_PAYLOAD=$(jq -n --arg msg "A funny single-panel British comic cartoon of IT fail: $SAFE_SUMMARY. Keep words and text minimal; only include text if it adds comedic value." '{model: "nano-banana-2", input: {prompt: $msg}}')
+          CREATE_PAYLOAD=$(jq -n --arg msg "A funny full-colour single-panel British comic cartoon of IT fail: $SAFE_SUMMARY. Keep words and text minimal; only include text if it adds comedic value. Must be in vivid color." '{model: "nano-banana-2", input: {prompt: $msg}}')
           
           CREATE_RESP=$(curl -s -X POST "https://api.kie.ai/api/v1/jobs/createTask" \
             -H "Authorization: Bearer $KIE_API_KEY" \
