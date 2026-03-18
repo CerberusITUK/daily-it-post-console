@@ -257,12 +257,18 @@ jobs:
 
       - name: Fetch RSS
         if: steps.vars.outputs.action != 'approve' && steps.vars.outputs.action != 'redo_image'
+        env:
+          ACTION_MODE: ${{ steps.vars.outputs.action }}
+          PREVIOUS_LINK: ${{ steps.vars.outputs.link }}
         run: |
           python3 - << 'EOF'
           import os, random, re
           from datetime import datetime, timezone, timedelta
           from zoneinfo import ZoneInfo
           import feedparser
+
+          action_mode = os.environ.get('ACTION_MODE', '').strip().lower()
+          previous_link = os.environ.get('PREVIOUS_LINK', '').strip()
 
           FEEDS = [
               ('https://www.theregister.com/headlines.atom', 'uk'),
@@ -330,6 +336,7 @@ jobs:
               for company in MAJOR_TECH_TERMS:
                   if company in text:
                       score += 2
+              score += random.uniform(0, 0.75)
               return score
 
           for feed_url, region in FEEDS:
@@ -356,17 +363,34 @@ jobs:
           if not all_recent and not fallback_entries:
               raise SystemExit('No RSS entries available')
 
-          if high_priority:
-              # Sort by score descending
-              high_priority.sort(key=lambda x: x[0], reverse=True)
-              top_score = high_priority[0][0]
-              # Pick randomly from the items that share the top score
-              best_candidates = [x for x in high_priority if x[0] == top_score]
-              chosen_dt, chosen_entry = random.choice(best_candidates)[1:]
-          elif all_recent:
-              chosen_dt, chosen_entry = random.choice(all_recent)[1:]
-          else:
-              chosen_dt, chosen_entry = random.choice(fallback_entries)
+          def pick_candidate(candidates, exclude_link=None):
+              if not candidates:
+                  return None
+              candidates.sort(key=lambda x: x[0], reverse=True)
+              top_score = candidates[0][0]
+              bucket = [c for c in candidates if c[0] >= top_score - 0.75]
+              filtered = [c for c in bucket if not (exclude_link and getattr(c[2], 'link', '') == exclude_link)]
+              if filtered:
+                  return random.choice(filtered)
+              if exclude_link:
+                  alt = [c for c in candidates if getattr(c[2], 'link', '') != exclude_link]
+                  if alt:
+                      return alt[0]
+              return random.choice(bucket)
+
+          exclude_link = previous_link if action_mode == 'redo' and previous_link else None
+
+          selected = pick_candidate(high_priority, exclude_link)
+          if not selected:
+              selected = pick_candidate(all_recent, exclude_link)
+          if not selected and fallback_entries:
+              fallback = [c for c in fallback_entries if not (exclude_link and getattr(c[1], 'link', '') == exclude_link)]
+              selected = random.choice(fallback or fallback_entries)
+
+          if not selected:
+              raise SystemExit('No RSS entries available after filtering')
+
+          chosen_dt, chosen_entry = selected[1], selected[2]
 
           link = getattr(chosen_entry, 'link', 'https://www.theregister.com/')
           
@@ -413,7 +437,7 @@ jobs:
         run: |
           #!/bin/bash
           # Use simple assignment to avoid Bash-only printf issues
-          PROMPT_TEXT="You are a deeply cynical, highly sarcastic IT engineer. Read this news: $ARTICLE_SUMMARY. STRICT FORMAT REQUIREMENT: Your summary must be exactly 3 sentences long. Sentences 1 and 2 must sarcastically describe the core news in plain English that a non-technical person understands (e.g. 'the internet broke because someone tripped over a wire' instead of 'BGP routes dropped'). Sentence 3 must be a standalone, biting, hilarious punchline about the situation. Also provide a witty title and sarcastic hashtags. Negative prompt: no offensive stereotypes, no derogatory terms, no caricatured ethnicity. CRITICAL: The total combined length of the title and summary MUST be under 200 characters to leave room for the link. Make it punchy. Output ONLY valid JSON in this exact format: {\"title\": \"<text>\", \"summary\": \"<text>\", \"hashtags\": [\"#tag1\",\"#tag2\"]}."
+          PROMPT_TEXT="You are a deeply cynical, highly sarcastic IT engineer. Read this news: $ARTICLE_SUMMARY. STRICT FORMAT REQUIREMENT: Your summary must be exactly 3 sentences long. Sentences 1 and 2 must sarcastically describe the core news in plain English that a non-technical person understands (e.g. 'the internet broke because someone tripped over a wire' instead of 'BGP routes dropped'). Sentence 3 must be a standalone, biting, hilarious punchline about the situation. Also provide a witty title and sarcastic hashtags. Negative prompt: no offensive stereotypes, no derogatory terms, no caricatured ethnicity, never use slurs or nicknames like 'Nork' or anything similar. CRITICAL: The total combined length of the title and summary MUST be under 200 characters to leave room for the link. Make it punchy. Output ONLY valid JSON in this exact format: {\"title\": \"<text>\", \"summary\": \"<text>\", \"hashtags\": [\"#tag1\",\"#tag2\"]}."
 
           PAYLOAD=$(jq -n --arg msg "$PROMPT_TEXT" '{model: "nousresearch/hermes-3-llama-3.1-405b", messages: [{role: "user", content: $msg}], max_tokens:250}')
 
@@ -511,7 +535,7 @@ jobs:
           
           # Use Kie.ai nano-banana-2
           KIE_API_KEY="${{ secrets.KAI_IMAGE_API_KEY }}"
-          CREATE_PAYLOAD=$(jq -n --arg msg "A funny full-colour single-panel British comic cartoon of IT fail: $SAFE_SUMMARY. Keep words and text minimal; only include text if it adds comedic value. Any text in the image must make sense in English and be correctly spelled. Negative prompt: no offensive stereotypes, no derogatory terms, no caricatured ethnicity. Must be in vivid color." '{model: "nano-banana-2", input: {prompt: $msg}}')
+          CREATE_PAYLOAD=$(jq -n --arg msg "A funny full-colour single-panel British comic cartoon of IT fail: $SAFE_SUMMARY. Keep words and text minimal; only include text if it adds comedic value. Any text in the image must make sense in English and be correctly spelled. Negative prompt: no offensive stereotypes, no derogatory terms, no caricatured ethnicity, never include slurs or words like 'Nork'. Must be in vivid color." '{model: "nano-banana-2", input: {prompt: $msg}}')
           
           CREATE_RESP=$(curl -s -X POST "https://api.kie.ai/api/v1/jobs/createTask" \
             -H "Authorization: Bearer $KIE_API_KEY" \
