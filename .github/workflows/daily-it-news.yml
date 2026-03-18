@@ -449,19 +449,11 @@ jobs:
           export AI_RESPONSE
 
           python3 - << 'EOF'
-          import os, json, re, urllib.request, urllib.parse
+          import os, json, re
 
           resp = os.environ.get("AI_RESPONSE", "")
           article_link = os.environ.get("ARTICLE_LINK", "https://www.theregister.com/")
           article_date = os.environ.get("ARTICLE_DATE", "")
-          
-          # Shorten URL
-          try:
-              api_url = "https://tinyurl.com/api-create.php?url=" + urllib.parse.quote(article_link)
-              req = urllib.request.urlopen(api_url)
-              short_link = req.read().decode('utf-8')
-          except Exception:
-              short_link = article_link
 
           # Determine Source Name
           source_name = "Source"
@@ -507,7 +499,7 @@ jobs:
               env.write(f"HASHTAGS_TEXT={hashtags}\n")
               env.write(f"SOURCE_NAME={source_name}\n")
               env.write(f"SOURCE_LINE=Source: {source_name}\n")
-              env.write(f"ARTICLE_LINK={short_link}\n")
+              env.write(f"ARTICLE_LINK={article_link}\n")
               env.write(f"DATE_LINE=Date: {article_date}\n")
           EOF
 
@@ -548,7 +540,7 @@ jobs:
             echo "Nano Banana 2 task created: $TASK_ID"
             
             # Poll for completion
-            MAX_RETRIES=60
+            MAX_RETRIES=5
             RETRY_COUNT=0
             IMG_URL=""
             
