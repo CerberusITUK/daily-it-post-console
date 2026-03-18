@@ -110,7 +110,6 @@ jobs:
           client = Client()
           client.login(handle, app_password)
 
-          link_text = ""
           if link:
               # Fallback if source_name is empty or just "Source"
               if not source_name or source_name == "Source":
@@ -122,7 +121,6 @@ jobs:
                       source_name = "Bleeping Computer"
                   elif "gizmodo.com" in link:
                       source_name = "Gizmodo"
-              link_text = f"Source: {source_name}\n{link}"
 
           # Fail-safe: Bluesky has a strict 300 grapheme/byte limit. 
           # We truncate the summary here if the AI ignored our prompt length constraints.
@@ -132,8 +130,10 @@ jobs:
           overhead = 0
           if hashtags:
               overhead += get_grapheme_len(hashtags) + 2
-          if link_text:
-              overhead += get_grapheme_len(link_text) + 2
+              
+          if link:
+              # We will append "\n\nSource: {source_name}" at the end
+              overhead += get_grapheme_len(f"Source: {source_name}") + 2
 
           if get_grapheme_len(summary) + overhead > 300:
               max_summary_len = 300 - overhead - 3
@@ -142,19 +142,21 @@ jobs:
               summary = truncated_bytes.decode('utf-8', 'ignore') + "..."
 
           text_builder = client_utils.TextBuilder()
-          if hashtags or link_text:
+          
+          if hashtags or link:
               text_builder.text(summary + "\n\n")
           else:
               text_builder.text(summary)
-              
+
           if hashtags:
-              if link_text:
+              if link:
                   text_builder.text(hashtags + "\n\n")
               else:
                   text_builder.text(hashtags)
-          
+
           if link and link.startswith("http"):
-              text_builder.link(link_text, link)
+              text_builder.text("Source: ")
+              text_builder.link(source_name, link)
 
           try:
               # Download image to memory
