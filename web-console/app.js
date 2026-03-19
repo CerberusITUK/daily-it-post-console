@@ -9,6 +9,7 @@ const elements = {
   passwordInput: document.getElementById('login-password'),
   logoutBtn: document.getElementById('logout-btn'),
   fetchArticlesBtn: document.getElementById('fetch-articles-btn'),
+  loadMoreBtn: document.getElementById('load-more-btn'),
   articlesContainer: document.getElementById('articles-container'),
   articlesEmpty: document.getElementById('articles-empty'),
   articleTitle: document.getElementById('article-title'),
@@ -37,6 +38,8 @@ const state = {
   pollTimer: null,
   selectedArticle: null,
   articles: [],
+  articleOffset: 0,
+  hasMoreArticles: false,
   jobHistory: [],
 };
 
@@ -156,6 +159,8 @@ function logout() {
 function resetUI() {
   state.articles = [];
   state.selectedArticle = null;
+  state.articleOffset = 0;
+  state.hasMoreArticles = false;
   state.jobHistory = [];
   state.currentJobId = null;
   stopPolling();
@@ -164,25 +169,59 @@ function resetUI() {
   state.lastArticlePayload = null;
   elements.articlesContainer.innerHTML = '';
   elements.articlesEmpty.classList.remove('hidden');
+  updateLoadMoreVisibility();
   renderArticleDetails();
   renderJobLog();
   updateButtons();
   updateJobStatus('Idle', 'muted');
 }
 
-async function fetchArticles() {
+function updateLoadMoreVisibility() {
+  if (!state.articles.length || !state.hasMoreArticles) {
+    elements.loadMoreBtn.classList.add('hidden');
+  } else {
+    elements.loadMoreBtn.classList.remove('hidden');
+  }
+}
+
+async function fetchArticles(options = {}) {
   if (!state.token) return;
-  setLoading(elements.fetchArticlesBtn, true);
+  const { append = false } = options;
+  const button = append ? elements.loadMoreBtn : elements.fetchArticlesBtn;
+  setLoading(button, true);
   try {
-    const data = await apiFetch(`/api/articles?limit=${CONFIG.maxArticles}`);
-    state.articles = data.articles || [];
+    const offset = append ? state.articleOffset : 0;
+    if (!append) {
+      state.selectedArticle = null;
+      state.articleOffset = 0;
+      state.hasMoreArticles = false;
+    }
+
+    const params = new URLSearchParams({
+      limit: String(CONFIG.maxArticles || 10),
+      offset: String(offset),
+    });
+    const data = await apiFetch(`/api/articles?${params.toString()}`);
+    const incoming = data.articles || [];
+
+    state.articleOffset = offset + incoming.length;
+    state.hasMoreArticles = Boolean(data.hasMore);
+    state.articles = append ? [...state.articles, ...incoming] : incoming;
     renderArticles();
-    addLog(`Fetched ${state.articles.length} article(s)`);
+    updateLoadMoreVisibility();
+    const logMsg = append
+      ? `Loaded ${incoming.length} more article(s)`
+      : `Fetched ${state.articles.length} article(s)`;
+    addLog(logMsg);
   } catch (err) {
     addLog(`Failed to fetch articles: ${err.message}`, 'error');
   } finally {
-    setLoading(elements.fetchArticlesBtn, false);
+    setLoading(button, false);
   }
+}
+
+async function loadMoreArticles() {
+  await fetchArticles({ append: true });
 }
 
 function renderArticles() {
@@ -263,10 +302,21 @@ function renderJobLog() {
 }
 
 function setLoading(button, isLoading) {
-  button.disabled = isLoading || button.disabled;
-  button.dataset.loading = isLoading ? 'true' : 'false';
-  if (isLoading) button.textContent = 'Working…';
-  else button.textContent = button.dataset.resetText || button.textContent;
+  if (!button) return;
+  if (isLoading) {
+    if (!button.dataset.resetText) {
+      button.dataset.resetText = button.textContent;
+    }
+    button.disabled = true;
+    button.dataset.loading = 'true';
+    button.textContent = 'Working…';
+  } else {
+    button.disabled = false;
+    button.dataset.loading = 'false';
+    if (button.dataset.resetText) {
+      button.textContent = button.dataset.resetText;
+    }
+  }
 }
 
 function updateJobStatus(text, variant = 'muted') {
@@ -397,6 +447,7 @@ function bindEvents() {
   elements.loginForm.addEventListener('submit', handleLogin);
   elements.logoutBtn.addEventListener('click', logout);
   elements.fetchArticlesBtn.addEventListener('click', fetchArticles);
+  elements.loadMoreBtn.addEventListener('click', loadMoreArticles);
   elements.runDraftBtn.addEventListener('click', () => triggerJob('draft'));
   elements.redoStoryBtn.addEventListener('click', () => triggerJob('redo'));
   elements.redoImageBtn.addEventListener('click', () => triggerJob('redo_image'));

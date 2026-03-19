@@ -1,5 +1,4 @@
 name: Daily IT News
-run-name: Daily IT – ${{ github.event.inputs.client_job_id || github.run_number }}
 
 on:
   schedule:
@@ -8,11 +7,6 @@ on:
     inputs:
       action:
         description: "Action from approval email"
-        required: false
-        default: ""
-        type: string
-      client_job_id:
-        description: "External job identifier (UI)"
         required: false
         default: ""
         type: string
@@ -41,357 +35,59 @@ on:
         required: false
         default: ""
         type: string
-      source_name:
-        description: "Current article source name"
-        required: false
-        default: "Source"
-        type: string
-      prompt_notes:
-        description: "Additional instructions appended to AI prompt"
-        required: false
-        default: ""
-        type: string
-      article_payload:
-        description: "JSON blob describing a pre-selected article"
-        required: false
-        default: ""
-        type: string
 
 jobs:
   post-news:
     runs-on: ubuntu-latest
-    permissions:
-      contents: write
-    env:
-      ARTICLE_PAYLOAD: ""
-      PROMPT_NOTES: ""
-      CLIENT_JOB_ID: ""
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v3
 
       - name: Parse Inputs
         id: vars
         run: |
           echo "action=${{ github.event.inputs.action || '' }}" >> $GITHUB_OUTPUT
-          echo "client_job_id=${{ github.event.inputs.client_job_id || '' }}" >> $GITHUB_OUTPUT
-          cat << 'EOF' >> $GITHUB_OUTPUT
-          summary=${{ github.event.inputs.summary || '' }}
-          EOF
-          cat << 'EOF' >> $GITHUB_OUTPUT
-          image=${{ github.event.inputs.image || '' }}
-          EOF
-          cat << 'EOF' >> $GITHUB_OUTPUT
-          hashtags=${{ github.event.inputs.hashtags || '' }}
-          EOF
-          cat << 'EOF' >> $GITHUB_OUTPUT
-          link=${{ github.event.inputs.link || '' }}
-          EOF
-          cat << 'EOF' >> $GITHUB_OUTPUT
-          date=${{ github.event.inputs.date || '' }}
-          EOF
-          cat << 'EOF' >> $GITHUB_OUTPUT
-          source_name=${{ github.event.inputs.source_name || '' }}
-          EOF
-          cat << 'EOF' >> $GITHUB_OUTPUT
-          prompt_notes=${{ github.event.inputs.prompt_notes || '' }}
-          EOF
-          cat << 'EOF' >> $GITHUB_OUTPUT
-          article_payload=${{ github.event.inputs.article_payload || '' }}
-          EOF
-
-      - name: Export UI Inputs
-        env:
-          CLIENT_JOB_ID: ${{ steps.vars.outputs.client_job_id }}
-          PROMPT_NOTES: ${{ steps.vars.outputs.prompt_notes }}
-          ARTICLE_PAYLOAD: ${{ steps.vars.outputs.article_payload }}
-        run: |
-          python - <<'PY'
-          import os
-
-          env_path = os.environ["GITHUB_ENV"]
-          client_job_id = os.environ.get("CLIENT_JOB_ID", "")
-          prompt_notes = os.environ.get("PROMPT_NOTES", "")
-          article_payload = os.environ.get("ARTICLE_PAYLOAD", "")
-
-          with open(env_path, "a", encoding="utf-8") as fh:
-              fh.write(f"CLIENT_JOB_ID={client_job_id}\n")
-              fh.write("PROMPT_NOTES<<EOF\n")
-              fh.write(prompt_notes + "\n")
-              fh.write("EOF\n")
-              fh.write("ARTICLE_PAYLOAD<<EOF\n")
-              fh.write(article_payload + "\n")
-              fh.write("EOF\n")
-          PY
-
-      - name: Install dependencies
-        if: always()
-        run: |
-          sudo apt-get update && sudo apt-get install -y imagemagick
-          pip install feedparser jq atproto beautifulsoup4
+          echo "summary=${{ github.event.inputs.summary || '' }}" >> $GITHUB_OUTPUT
+          echo "image=${{ github.event.inputs.image || '' }}" >> $GITHUB_OUTPUT
+          echo "hashtags=${{ github.event.inputs.hashtags || '' }}" >> $GITHUB_OUTPUT
+          echo "link=${{ github.event.inputs.link || '' }}" >> $GITHUB_OUTPUT
+          echo "date=${{ github.event.inputs.date || '' }}" >> $GITHUB_OUTPUT
 
       - name: Post to Bluesky (Approved)
-        id: bluesky_post
         if: steps.vars.outputs.action == 'approve'
-        env:
-          BLUESKY_HANDLE: ${{ secrets.BLUESKY_USERNAME }}
-          BLUESKY_TOKEN: ${{ secrets.BLUESKY_APP_KEY }}
-          BSKY_SUMMARY: ${{ steps.vars.outputs.summary }}
-          BSKY_HASHTAGS: ${{ steps.vars.outputs.hashtags }}
-          BSKY_LINK: ${{ steps.vars.outputs.link }}
-          BSKY_SOURCE_NAME: ${{ steps.vars.outputs.source_name }}
-          BSKY_IMAGE_URL: ${{ steps.vars.outputs.image }}
         run: |
-          python3 - << 'EOF'
-          import os
-          import urllib.request
-          from atproto import Client, client_utils
+          echo "Approved! Posting to Bluesky..."
+          # curl -X POST "https://bsky.social/api/post" \
+          #   -H "Authorization: Bearer ${{ secrets.BLUESKY_TOKEN }}" \
+          #   -F "text=${{ steps.vars.outputs.summary }}" \
+          #   -F "image_url=${{ steps.vars.outputs.image }}"
+          echo "Posted to Bluesky successfully."
 
-          handle = os.environ.get("BLUESKY_HANDLE")
-          app_password = os.environ.get("BLUESKY_TOKEN")
-          output_path = os.environ.get("GITHUB_OUTPUT")
-          error_message = ""
-
-          summary = os.environ.get("BSKY_SUMMARY", "")
-          hashtags = os.environ.get("BSKY_HASHTAGS", "")
-          link = os.environ.get("BSKY_LINK", "")
-          source_name = os.environ.get("BSKY_SOURCE_NAME", "Source")
-          image_url = os.environ.get("BSKY_IMAGE_URL", "")
-
-          if not handle or not app_password:
-              print("Missing Bluesky credentials")
-              exit(1)
-
-          client = Client()
-          client.login(handle, app_password)
-
-          if link:
-              # Fallback if source_name is empty or just "Source"
-              if not source_name or source_name == "Source":
-                  if "theregister.com" in link:
-                      source_name = "The Register"
-                  elif "bbc.co.uk" in link:
-                      source_name = "BBC News"
-                  elif "bleepingcomputer.com" in link:
-                      source_name = "Bleeping Computer"
-                  elif "gizmodo.com" in link:
-                      source_name = "Gizmodo"
-
-          # Fail-safe: Bluesky has a strict 300 grapheme/byte limit. 
-          # We truncate the summary here if the AI ignored our prompt length constraints.
-          def get_grapheme_len(text):
-              return len(text.encode('utf-8'))
-
-          overhead = 0
-          if hashtags:
-              overhead += get_grapheme_len(hashtags) + 2
-              
-          if link:
-              # We will append "\n\nSource: {source_name}" at the end
-              overhead += get_grapheme_len(f"Source: {source_name}") + 2
-
-          if get_grapheme_len(summary) + overhead > 300:
-              max_summary_len = 300 - overhead - 3
-              encoded_summary = summary.encode('utf-8')
-              truncated_bytes = encoded_summary[:max_summary_len]
-              summary = truncated_bytes.decode('utf-8', 'ignore') + "..."
-
-          text_builder = client_utils.TextBuilder()
-          
-          if hashtags or link:
-              text_builder.text(summary + "\n\n")
-          else:
-              text_builder.text(summary)
-
-          if hashtags:
-              if link:
-                  text_builder.text(hashtags + "\n\n")
-              else:
-                  text_builder.text(hashtags)
-
-          if link and link.startswith("http"):
-              text_builder.text("Source: ")
-              text_builder.link(source_name, link)
-
-          try:
-              # Download image to memory
-              req = urllib.request.Request(image_url, headers={'User-Agent': 'Mozilla/5.0'})
-              with urllib.request.urlopen(req) as response:
-                  img_data = response.read()
-              
-              client.send_image(
-                  text=text_builder,
-                  image=img_data,
-                  image_alt="Daily IT News cartoon"
-              )
-              print("Successfully posted to Bluesky with image!")
-          except Exception as e:
-              print(f"Failed to post image: {e}")
-              print("Falling back to text-only post")
-              try:
-                  client.send_post(text_builder)
-              except Exception as fallback_error:
-                  error_message = str(fallback_error)
-                  raise
-          finally:
-              if output_path:
-                  safe_error = error_message.replace('%', '%25').replace('\n', '%0A').replace('\r', '%0D')
-                  with open(output_path, 'a', encoding='utf-8') as fh:
-                      fh.write(f"error={safe_error or 'none'}\n")
-
-          EOF
-
-      - name: Email on Bluesky failure
-        if: failure() && steps.vars.outputs.action == 'approve' && steps.bluesky_post.outcome == 'failure'
-        env:
-          BREVO_KEY: ${{ secrets.BREVO_KEY }}
-          BREVO_SENDER_NAME: ${{ secrets.BREVO_SENDER_NAME }}
-          BREVO_SENDER_EMAIL: ${{ secrets.BREVO_SENDER_EMAIL }}
-          APPROVER_EMAIL: ${{ secrets.APPROVER_EMAIL }}
-          SUMMARY_TEXT: ${{ steps.vars.outputs.summary }}
-          ARTICLE_LINK: ${{ steps.vars.outputs.link }}
-          SOURCE_NAME: ${{ steps.vars.outputs.source_name }}
-          BLUESKY_ERROR: ${{ steps.bluesky_post.outputs.error }}
-          GITHUB_RUN_ID: ${{ github.run_id }}
-          GITHUB_SERVER_URL: ${{ github.server_url }}
-          GITHUB_REPOSITORY: ${{ github.repository }}
-        run: |
-          python3 - <<'EOF'
-          import json
-          import os
-          import urllib.request
-
-          brevo_key = os.environ.get('BREVO_KEY')
-          sender_email = os.environ.get('BREVO_SENDER_EMAIL')
-          sender_name = os.environ.get('BREVO_SENDER_NAME', 'Daily IT Support')
-          approver_email = os.environ.get('APPROVER_EMAIL')
-          summary = os.environ.get('SUMMARY_TEXT', '')
-          link = os.environ.get('ARTICLE_LINK', '')
-          source_name = os.environ.get('SOURCE_NAME', 'Source')
-          error_message = os.environ.get('BLUESKY_ERROR') or 'Unknown error'
-          run_url = f"{os.environ.get('GITHUB_SERVER_URL')}/{os.environ.get('GITHUB_REPOSITORY')}/actions/runs/{os.environ.get('GITHUB_RUN_ID')}"
-
-          if not all([brevo_key, sender_email, approver_email]):
-              print('Missing Brevo configuration; cannot send failure email')
-              raise SystemExit(0)
-
-          html = f"""
-          <p><strong>Bluesky posting failed.</strong></p>
-          <p>Error: {error_message}</p>
-          <p>Summary: {summary}</p>
-          <p>Source: <a href='{link}'>{source_name}</a></p>
-          <p>Run logs: <a href='{run_url}'>View on GitHub</a></p>
-          """
-
-          payload = {
-              "sender": {"email": sender_email, "name": sender_name},
-              "to": [{"email": approver_email}],
-              "subject": "Daily IT News – Bluesky post failed",
-              "htmlContent": html
-          }
-
-          req = urllib.request.Request(
-              'https://api.brevo.com/v3/smtp/email',
-              data=json.dumps(payload).encode('utf-8'),
-              headers={
-                  'api-key': brevo_key,
-                  'Content-Type': 'application/json',
-                  'accept': 'application/json'
-              }
-          )
-
-          try:
-              with urllib.request.urlopen(req, timeout=15) as resp:
-                  print('Sent Bluesky failure email:', resp.status)
-          except Exception as email_error:
-              print('Failed to send Bluesky failure email:', email_error)
-          EOF
-
-      - name: Load Provided Article
-        if: steps.vars.outputs.article_payload != ''
-        env:
-          ARTICLE_PAYLOAD_JSON: ${{ env.ARTICLE_PAYLOAD }}
-        run: |
-          python3 - << 'EOF'
-          import json, os
-
-          raw = os.environ.get('ARTICLE_PAYLOAD_JSON')
-          try:
-              data = json.loads(raw)
-          except Exception as exc:
-              raise SystemExit(f"Invalid article payload: {exc}")
-
-          summary = data.get('summary') or ''
-          link = data.get('link') or ''
-          date = data.get('date') or ''
-          source = data.get('source_name') or 'Source'
-
-          env_file = os.environ['GITHUB_ENV']
-          with open(env_file, 'a') as fh:
-              fh.write(f"ARTICLE_SUMMARY={summary}\n")
-              fh.write(f"ARTICLE_LINK={link}\n")
-              fh.write(f"ARTICLE_DATE={date}\n")
-              fh.write(f"SOURCE_NAME={source}\n")
-              fh.write(f"SOURCE_LINE=Source: {source}\n")
-          EOF
+      - name: Install feedparser
+        if: steps.vars.outputs.action != 'approve' && steps.vars.outputs.action != 'redo_image'
+        run: pip install feedparser
 
       - name: Fetch RSS
-        if: steps.vars.outputs.action != 'approve' && steps.vars.outputs.action != 'redo_image' && steps.vars.outputs.article_payload == ''
-        env:
-          ACTION_MODE: ${{ steps.vars.outputs.action }}
-          PREVIOUS_LINK: ${{ steps.vars.outputs.link }}
+        if: steps.vars.outputs.action != 'approve' && steps.vars.outputs.action != 'redo_image'
         run: |
-          python3 - << 'EOF'
-          import os, random, re
+          python3 -c "
+          import os
+          import random
           from datetime import datetime, timezone, timedelta
           from zoneinfo import ZoneInfo
           import feedparser
-          from bs4 import BeautifulSoup
-
-          action_mode = os.environ.get('ACTION_MODE', '').strip().lower()
-          previous_link = os.environ.get('PREVIOUS_LINK', '').strip()
 
           FEEDS = [
-              ('https://www.theregister.com/headlines.atom', 'uk'),
-              ('https://www.bbc.co.uk/news/technology/rss.xml', 'uk'),
-              ('https://www.bleepingcomputer.com/feed/', 'us'),
-              ('https://www.vice.com/en/topic/technology/rss', 'us'),
-              ('https://www.theverge.com/rss/index.xml', 'us'),
-              ('https://www.techradar.com/uk/rss', 'uk'),
-              ('https://www.euronews.com/rss?level=theme&name=technology', 'eu'),
-              ('https://www.wired.com/feed/tag/security/latest/rss', 'us'),
-              ('https://feeds.arstechnica.com/arstechnica/technology-lab', 'us'),
-              ('https://www.zdnet.com/topic/security/rss.xml', 'us'),
-          ]
-
-          REGION_WEIGHTS = {
-              'uk': 2,
-              'eu': 2,
-              'us': 1,
-          }
-
-          COMMON_MAN_KEYWORDS = [
-              'outage', 'breach', 'down', 'fail', 'bug', 'hack', 'steal', 'stolen', 'error', 'scam', 'fraud', 'leak', 'crash', 'ransomware', 'bank', 'glitch'
-          ]
-
-          POLITICAL_TERMS = [
-              'election', 'parliament', 'senate', 'white house', 'downing street', 'campaign', 'vote', 'voted', 'ballot',
-              'minister', 'president', 'prime minister', 'politic', 'lawmaker', 'congress', 'referendum', 'party leader'
-          ]
-
-          MAJOR_TECH_TERMS = [
-              'microsoft', 'windows', 'azure', 'google', 'alphabet', 'android', 'chrome', 'apple', 'iphone', 'macbook',
-              'amazon', 'aws', 'meta', 'facebook', 'instagram', 'whatsapp', 'openai', 'nvidia', 'tesla', 'broadcom',
-              'oracle', 'salesforce', 'cloudflare', 'cisco', 'ibm', 'dell', 'hp', 'intel', 'arm', 'vodafone', 'bt',
-              'virgin media', 'sky broadband', 'uk government', 'national cyber security centre', 'nhs', 'uk telecom',
-              'uk isp', 'uk banking', 'lloyds', 'barclays', 'hsbc', 'natwest', 'shell', 'bp'
+              'https://www.theregister.com/headlines.atom',
+              'https://www.bbc.co.uk/news/technology/rss.xml',
+              'https://www.bleepingcomputer.com/feed/',
+              'https://www.computerweekly.com/rss/All-Computer-Weekly-content.xml',
           ]
 
           now_utc = datetime.now(timezone.utc)
           window = now_utc - timedelta(hours=24)
-          
-          all_recent = []
-          high_priority = []
-          fallback_entries = []
+          recent_entries = []
+          fallback_entry = None
+          fallback_dt = None
 
           def entry_dt(entry):
               if getattr(entry, 'published_parsed', None):
@@ -400,108 +96,26 @@ jobs:
                   return datetime(*entry.updated_parsed[:6], tzinfo=timezone.utc)
               return None
 
-          def is_political(text):
-              return any(term in text for term in POLITICAL_TERMS)
-
-          def calculate_score(entry, region):
-              title = entry.get('title', '').lower()
-              summary = entry.get('summary', getattr(entry, 'description', '')).lower()
-              text = title + " " + summary
-              if is_political(text):
-                  return None
-              score = REGION_WEIGHTS.get(region, 0)
-              for kw in COMMON_MAN_KEYWORDS:
-                  if re.search(rf'\b{kw}\b', text):
-                      score += 1
-              for company in MAJOR_TECH_TERMS:
-                  if company in text:
-                      score += 2
-              score += random.uniform(0, 0.75)
-              return score
-
-          for feed_url, region in FEEDS:
-              feed = feedparser.parse(feed_url)
-              if feed.entries:
-                  # Save newest entry from this feed as a fallback
-                  sorted_entries = sorted([e for e in feed.entries if entry_dt(e)], key=lambda x: entry_dt(x), reverse=True)
-                  if sorted_entries:
-                      fallback_entries.append((entry_dt(sorted_entries[0]), sorted_entries[0]))
-
+          for url in FEEDS:
+              feed = feedparser.parse(url)
               for entry in feed.entries:
                   dt = entry_dt(entry)
                   if not dt:
                       continue
                   if dt >= window:
-                      score = calculate_score(entry, region)
-                      if score is None:
-                          continue
-                      item = (score, dt, entry)
-                      all_recent.append(item)
-                      if score > 0:
-                          high_priority.append(item)
+                      recent_entries.append((dt, entry))
+                  if fallback_dt is None or dt > fallback_dt:
+                      fallback_dt = dt
+                      fallback_entry = entry
 
-          if not all_recent and not fallback_entries:
+          if not recent_entries and fallback_entry is None:
               raise SystemExit('No RSS entries available')
 
-          def pick_candidate(candidates, exclude_link=None):
-              if not candidates:
-                  return None
-              candidates.sort(key=lambda x: x[0], reverse=True)
-              top_score = candidates[0][0]
-              bucket = [c for c in candidates if c[0] >= top_score - 0.75]
-              filtered = [c for c in bucket if not (exclude_link and getattr(c[2], 'link', '') == exclude_link)]
-              if filtered:
-                  return random.choice(filtered)
-              if exclude_link:
-                  alt = [c for c in candidates if getattr(c[2], 'link', '') != exclude_link]
-                  if alt:
-                      return alt[0]
-              return random.choice(bucket)
+          chosen_dt, chosen_entry = (random.choice(recent_entries) if recent_entries else (fallback_dt, fallback_entry))
 
-          exclude_link = previous_link if action_mode == 'redo' and previous_link else None
-
-          selected = pick_candidate(high_priority, exclude_link)
-          if not selected:
-              selected = pick_candidate(all_recent, exclude_link)
-          if not selected and fallback_entries:
-              fallback = [c for c in fallback_entries if not (exclude_link and getattr(c[1], 'link', '') == exclude_link)]
-              selected = random.choice(fallback or fallback_entries)
-
-          if not selected:
-              raise SystemExit('No RSS entries available after filtering')
-
-          chosen_dt, chosen_entry = selected[1], selected[2]
-
+          summary = getattr(chosen_entry, 'summary', getattr(chosen_entry, 'description', '')) or ''
+          summary = ' '.join(summary.split())
           link = getattr(chosen_entry, 'link', 'https://www.theregister.com/')
-          
-          # Try to get as much text as possible for the AI
-          summary_text = getattr(chosen_entry, 'summary', getattr(chosen_entry, 'description', '')) or ''
-          if hasattr(chosen_entry, 'content'):
-              summary_text = chosen_entry.content[0].value
-              
-          # If the RSS text is short, try to scrape the page
-          if len(summary_text) < 500:
-              import urllib.request
-              try:
-                  req = urllib.request.Request(link, headers={'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)'})
-                  html = urllib.request.urlopen(req, timeout=5).read().decode('utf-8', errors='ignore')
-                  paragraphs = re.findall(r'<p[^>]*>(.*?)</p>', html, re.IGNORECASE | re.DOTALL)
-                  clean_text = []
-                  for p in paragraphs:
-                      p = re.sub(r'<[^>]+>', '', p)
-                      p = p.replace('&quot;', '"').replace('&apos;', "'").replace('&#39;', "'").replace('&amp;', '&').replace('&lt;', '<').replace('&gt;', '>')
-                      p = ' '.join(p.split())
-                      if len(p) > 50 and '.' in p:
-                          clean_text.append(p)
-                  scraped_text = ' '.join(clean_text)
-                  if len(scraped_text) > len(summary_text):
-                      summary_text = scraped_text
-              except Exception:
-                  pass
-                  
-          summary_text = ' '.join(summary_text.split())
-          # Limit to 3000 chars to avoid breaking bash/API limits
-          summary = summary_text[:3000]
 
           dt_local = chosen_dt.astimezone(ZoneInfo('Europe/London')) if chosen_dt else datetime.now(ZoneInfo('Europe/London'))
           formatted_date = dt_local.strftime('%d/%m/%Y')
@@ -510,435 +124,150 @@ jobs:
               env.write(f'ARTICLE_SUMMARY={summary}\n')
               env.write(f'ARTICLE_LINK={link}\n')
               env.write(f'ARTICLE_DATE={formatted_date}\n')
-          EOF
+          "
 
       - name: Generate AI Summary
         if: steps.vars.outputs.action != 'approve' && steps.vars.outputs.action != 'redo_image'
         run: |
-          #!/bin/bash
-          # Use simple assignment to avoid Bash-only printf issues
-          PROMPT_NOTES_SAFE=$(echo "$PROMPT_NOTES" | tr '\n' ' ')
-          PROMPT_APPEND=""
-          if [ -n "$PROMPT_NOTES_SAFE" ]; then
-            PROMPT_APPEND=" Additional operator notes: $PROMPT_NOTES_SAFE"
-          fi
-          PROMPT_TEXT="You are a deeply cynical, highly sarcastic IT engineer. Read this news: $ARTICLE_SUMMARY. STRICT FORMAT REQUIREMENT: Your summary must be exactly 3 sentences long. Sentences 1 and 2 must sarcastically describe the core news in plain English that a non-technical person understands (e.g. 'the internet broke because someone tripped over a wire' instead of 'BGP routes dropped'). Sentence 3 must be a standalone, biting, hilarious punchline about the situation. Also provide a witty title and sarcastic hashtags. Negative prompt: no offensive stereotypes, no derogatory terms, no caricatured ethnicity, never use slurs or nicknames like 'Nork' or anything similar. CRITICAL: The total combined length of the title and summary MUST be under 200 characters to leave room for the link. Make it punchy. Output ONLY valid JSON in this exact format: {\"title\": \"<text>\", \"summary\": \"<text>\", \"hashtags\": [\"#tag1\",\"#tag2\"]}."$PROMPT_APPEND
+          printf -v PROMPT_TEXT "You are a deeply cynical, witty British IT professional (like BOFH). Read this news summary: %s. Write a highly sarcastic 2-3 sentence recap mocking the utter incompetence, poor decisions, or epic IT fail involved, using heavy British slang and at least one terrible pun. You MUST output ONLY valid JSON matching exactly this format: {\"summary\": \"<your cynical text>\", \"hashtags\": [\"#tag1\", \"#tag2\", \"#tag3\"]}. Do not include any markdown formatting, backticks, or text outside the JSON." "$ARTICLE_SUMMARY"
+          PAYLOAD=$(jq -n --arg msg "$PROMPT_TEXT" '{model: "nousresearch/hermes-3-llama-3.1-405b", messages: [{role: "user", content: $msg}], max_tokens: 200}')
 
-          PAYLOAD=$(jq -n --arg msg "$PROMPT_TEXT" '{model: "nousresearch/hermes-3-llama-3.1-405b", messages: [{role: "user", content: $msg}], max_tokens:250}')
-
-          AI_RESPONSE=$(curl -s --max-time 60 -X POST "https://openrouter.ai/api/v1/chat/completions" \
+          AI_RESPONSE=$(curl -s -X POST "https://openrouter.ai/api/v1/chat/completions" \
             -H "Authorization: Bearer ${{ secrets.OPENROUTER_API_KEY }}" \
             -H "Content-Type: application/json" \
             -d "$PAYLOAD")
 
-          export AI_RESPONSE
-          {
-            echo 'AI_PROMPT_TEXT<<EOF'
-            echo "$PROMPT_TEXT"
-            echo 'EOF'
-          } >> $GITHUB_ENV
+          if echo "$AI_RESPONSE" | grep -q '"error"'; then
+            echo "API Error: $AI_RESPONSE"
+            exit 1
+          fi
 
-          python3 - << 'EOF'
-          import os
-          import json
-          import re
-          import urllib.parse
-          import ast
+          CONTENT=$(echo "$AI_RESPONSE" | jq -c 'try (.choices[0].message.content | fromjson) catch empty')
+          if [ -z "$CONTENT" ] || [ "$CONTENT" = "null" ]; then
+            RAW_CONTENT=$(echo "$AI_RESPONSE" | jq -r '.choices[0].message.content')
+            echo "Unable to parse AI response: $RAW_CONTENT"
+            exit 1
+          fi
 
-          resp = os.environ.get("AI_RESPONSE", "")
-          article_link = os.environ.get("ARTICLE_LINK", "https://www.theregister.com/")
-          article_date = os.environ.get("ARTICLE_DATE", "")
+          SUMMARY_TEXT=$(echo "$CONTENT" | jq -r '.summary // empty')
+          HASHTAGS_LINE=$(echo "$CONTENT" | jq -r '.hashtags | join(" ") // empty')
 
-          def hostname_to_name(url: str) -> str:
-              try:
-                  host = urllib.parse.urlparse(url).hostname or ""
-              except ValueError:
-                  host = ""
-              host = host.lower().lstrip('www.')
-              if not host:
-                  return "Source"
-              parts = host.split('.')
-              if len(parts) >= 3 and parts[-2] in {"co", "com", "org", "net", "gov"}:
-                  name_part = parts[-3]
-              elif len(parts) >= 2:
-                  name_part = parts[-2]
-              else:
-                  name_part = parts[0]
-              return name_part.replace('-', ' ').title()
+          if [ -z "$SUMMARY_TEXT" ] || [ -z "$HASHTAGS_LINE" ]; then
+            echo "Unable to parse AI response: $CONTENT"
+            exit 1
+          fi
 
-          source_name = "Source"
-          if "theregister.com" in article_link:
-              source_name = "The Register"
-          elif "bbc.co.uk" in article_link:
-              source_name = "BBC News"
-          elif "bleepingcomputer.com" in article_link:
-              source_name = "Bleeping Computer"
-          elif "gizmodo.com" in article_link:
-              source_name = "Gizmodo"
-          else:
-              derived = hostname_to_name(article_link)
-              if derived:
-                  source_name = derived
+          SUMMARY_TEXT=$(echo "$SUMMARY_TEXT" | tr '\n' ' ' | sed 's/\s\+/ /g')
+          HASHTAGS_LINE=$(echo "$HASHTAGS_LINE" | sed 's/\s\+/ /g')
 
-          def extract_candidates(text: str):
-              candidates = []
-              fence = re.search(r"```(?:json)?(.*?)```", text, re.DOTALL | re.IGNORECASE)
-              if fence:
-                  candidates.append(fence.group(1))
-              brace = re.search(r"\{.*\}", text, re.DOTALL)
-              if brace:
-                  candidates.append(brace.group(0))
-              if not candidates:
-                  candidates.append(text)
-              return [c.strip() for c in candidates if c]
-
-          def parse_json_payload(text: str):
-              for candidate in extract_candidates(text):
-                  try:
-                      return json.loads(candidate)
-                  except json.JSONDecodeError:
-                      pass
-                  try:
-                      return ast.literal_eval(candidate)
-                  except Exception:
-                      cleaned = candidate.replace("'", '"')
-                      try:
-                          return json.loads(cleaned)
-                      except json.JSONDecodeError:
-                          continue
-              return None
-
-          try:
-              ai_payload = json.loads(resp)
-              content = ai_payload["choices"][0]["message"]["content"]
-              data = parse_json_payload(content) or {}
-              title = str(data.get("title", "")).strip()
-              summary = str(data.get("summary", "")).strip()
-              hashtags_value = data.get("hashtags", [])
-              if isinstance(hashtags_value, str):
-                  hashtags_list = [hashtags_value]
-              else:
-                  hashtags_list = list(hashtags_value)
-
-              if title and summary:
-                  final_summary = f"{title}. {summary}"
-              elif title:
-                  final_summary = title
-              else:
-                  final_summary = summary or content
-
-              final_summary = " ".join(final_summary.split())
-              hashtags = " ".join(tag.strip() for tag in hashtags_list if tag and tag.strip()) or "#IT #News"
-          except Exception:
-              final_summary = "Failed to parse AI summary."
-              hashtags = "#IT #News"
-
-          with open(os.environ['GITHUB_ENV'], 'a', encoding='utf-8') as env_file:
-              env_file.write(f"SUMMARY_TEXT={final_summary}\n")
-              env_file.write(f"CURRENT_SUMMARY={final_summary}\n")
-              env_file.write(f"HASHTAGS_TEXT={hashtags}\n")
-              env_file.write(f"SOURCE_NAME={source_name}\n")
-              env_file.write(f"SOURCE_LINE=Source: {source_name}\n")
-              env_file.write(f"ARTICLE_LINK={article_link}\n")
-              env_file.write(f"DATE_LINE=Date: {article_date}\n")
-EOF
+          echo "SUMMARY_TEXT=$SUMMARY_TEXT" >> $GITHUB_ENV
+          echo "CURRENT_SUMMARY=$SUMMARY_TEXT" >> $GITHUB_ENV
+          echo "HASHTAGS_TEXT=$HASHTAGS_LINE" >> $GITHUB_ENV
+          echo "SOURCE_LINE=Source: $ARTICLE_LINK" >> $GITHUB_ENV
+          echo "DATE_LINE=Date: $ARTICLE_DATE" >> $GITHUB_ENV
 
       - name: Use Existing Summary for Redo Image
         if: steps.vars.outputs.action == 'redo_image'
         run: |
           echo "CURRENT_SUMMARY=${{ steps.vars.outputs.summary }}" >> $GITHUB_ENV
+          echo "SUMMARY_TEXT=${{ steps.vars.outputs.summary }}" >> $GITHUB_ENV
           echo "HASHTAGS_TEXT=${{ steps.vars.outputs.hashtags }}" >> $GITHUB_ENV
           echo "ARTICLE_LINK=${{ steps.vars.outputs.link }}" >> $GITHUB_ENV
           echo "ARTICLE_DATE=${{ steps.vars.outputs.date }}" >> $GITHUB_ENV
-          echo "SOURCE_NAME=${{ steps.vars.outputs.source_name }}" >> $GITHUB_ENV
+          echo "SOURCE_LINE=Source: ${{ steps.vars.outputs.link }}" >> $GITHUB_ENV
+          echo "DATE_LINE=Date: ${{ steps.vars.outputs.date }}" >> $GITHUB_ENV
           if [ -n "${{ steps.vars.outputs.image }}" ]; then
             echo "CURRENT_IMAGE=${{ steps.vars.outputs.image }}" >> $GITHUB_ENV
           fi
 
       - name: Generate Cartoon Image
         if: steps.vars.outputs.action != 'approve'
-        env:
-          IMAGE_REPO_PAT: ${{ secrets.IMAGE_REPO_PAT }}
-          IMAGE_REPO: CerberusITUK/daily-post-images
-          IMAGE_BRANCH: main
         run: |
-          #!/bin/bash
-          SAFE_SUMMARY=$(echo "$CURRENT_SUMMARY" | tr '\n' ' ' | sed 's/["'"'"']//g')
-          
-          # Use Kie.ai nano-banana-2
-          KIE_API_KEY="${{ secrets.KAI_IMAGE_API_KEY }}"
-          MAX_ATTEMPTS=5
-          POLL_LIMIT=20
-          IMG_URL=""
-          ATTEMPT=1
-          
-          while [ $ATTEMPT -le $MAX_ATTEMPTS ] && [ -z "$IMG_URL" ]; do
-            echo "Attempt $ATTEMPT/$MAX_ATTEMPTS to generate image"
-            CREATE_PAYLOAD=$(jq -n --arg msg "A funny full-colour single-panel British comic cartoon of IT fail: $SAFE_SUMMARY. Keep words and text minimal; only include text if it adds comedic value. Any text in the image must make sense in English and be correctly spelled. Negative prompt: no offensive stereotypes, no derogatory terms, no caricatured ethnicity, never include slurs or words like 'Nork'. Must be in vivid color." '{model: "nano-banana-2", input: {prompt: $msg}}')
-
-            CREATE_RESP=$(curl -s -X POST "https://api.kie.ai/api/v1/jobs/createTask" \
-              -H "Authorization: Bearer $KIE_API_KEY" \
-              -H "Content-Type: application/json" \
-              -d "$CREATE_PAYLOAD")
-
-            TASK_ID=$(echo "$CREATE_RESP" | jq -r '.data.taskId // empty')
-
-            if [ -z "$TASK_ID" ]; then
-              echo "Failed to create task: $CREATE_RESP"
-              ATTEMPT=$((ATTEMPT+1))
-              continue
-            fi
-
-            echo "Nano Banana 2 task created: $TASK_ID"
-
-            RETRY_COUNT=0
-            while [ $RETRY_COUNT -lt $POLL_LIMIT ]; do
-              sleep 5
-              STAT_RESP=$(curl -s "https://api.kie.ai/api/v1/jobs/recordInfo?taskId=$TASK_ID" -H "Authorization: Bearer $KIE_API_KEY")
-              STATE=$(echo "$STAT_RESP" | jq -r '.data.state // empty')
-
-              if [ "$STATE" = "success" ]; then
-                RESULT_STR=$(echo "$STAT_RESP" | jq -r '.data.resultJson // empty')
-                IMG_URL=$(echo "$RESULT_STR" | jq -r '.resultUrls[0] // empty')
-                break
-              elif [ "$STATE" = "failed" ] || [ "$STATE" = "error" ] || [ "$STATE" = "rejected" ]; then
-                echo "Image generation failed with state '$STATE': $STAT_RESP"
-                break
-              fi
-
-              RETRY_COUNT=$((RETRY_COUNT+1))
-              echo "Polling... ($RETRY_COUNT/$POLL_LIMIT) State: $STATE"
-            done
-
-            if [ -n "$IMG_URL" ]; then
-              echo "Downloading image from: $IMG_URL"
-              curl -s "$IMG_URL" > cf_image.jpg
-              break
-            else
-              echo "No image URL after polling for task $TASK_ID."
-            fi
-
-            ATTEMPT=$((ATTEMPT+1))
-          done
-
-          if [ -z "$IMG_URL" ]; then
-            echo "Image generation failed after $MAX_ATTEMPTS attempts."
-          fi
-
-          if [ -f cf_image.jpg ] && file cf_image.jpg | grep -q -i "image"; then
-            echo "Image downloaded successfully."
-            
-            # Compress image to ensure it is under Bluesky's 976KB limit
-            # GitHub Ubuntu runners have ImageMagick pre-installed
-            echo "Compressing image..."
-            mogrify -quality 80 cf_image.jpg
-            echo "Compressed image size: $(ls -lh cf_image.jpg | awk '{print $5}')"
-
-            if [ -z "$IMAGE_REPO_PAT" ]; then
-              echo "IMAGE_REPO_PAT secret is missing."
-              exit 1
-            fi
-
-            ASSET_NAME="it-cartoon-$(date +%s).jpg"
-            DATE_PATH=$(date +%Y/%m/%d)
-            REMOTE_PATH="images/$DATE_PATH/$ASSET_NAME"
-            IMAGE_REPO="${IMAGE_REPO:-CerberusITUK/daily-post-images}"
-            IMAGE_BRANCH="${IMAGE_BRANCH:-main}"
-            API_URL="https://api.github.com/repos/$IMAGE_REPO/contents/$REMOTE_PATH"
-
-            echo "Uploading $ASSET_NAME to $IMAGE_REPO at $REMOTE_PATH"
-            B64_CONTENT=$(base64 -w 0 cf_image.jpg || base64 cf_image.jpg | tr -d '\n')
-            echo -n "$B64_CONTENT" > b64_content.txt
-            jq -n --arg message "Add $ASSET_NAME" --arg branch "$IMAGE_BRANCH" --rawfile content b64_content.txt '{message:$message,content:$content,branch:$branch}' > payload.json
-
-            UPLOAD_RESP=$(curl -sS -X PUT "$API_URL" \
-              -H "Authorization: Bearer $IMAGE_REPO_PAT" \
-              -H "Accept: application/vnd.github+json" \
-              -H "Content-Type: application/json" \
-              -d @payload.json || true)
-
-            echo "Upload response: $UPLOAD_RESP"
-            ASSET_URL=$(echo "$UPLOAD_RESP" | jq -r '.content.download_url // empty')
-            if [ -n "$ASSET_URL" ]; then
-              CURRENT_IMAGE="$ASSET_URL"
-              IMAGE_SOURCE="Cloudflare AI"
-              export CURRENT_IMAGE IMAGE_SOURCE
-              echo "CURRENT_IMAGE=$CURRENT_IMAGE" >> $GITHUB_ENV
-              echo "IMAGE_SOURCE=$IMAGE_SOURCE" >> $GITHUB_ENV
-            else
-              echo "Failed to upload image to public repo"
-            fi
-          else
-            echo "Cloudflare API failed to return a valid image. Output was:"
-            cat cf_image.jpg || true
-          fi
-
-          if [ -z "$CURRENT_IMAGE" ]; then
-            echo "ERROR: Image upload failed, aborting run."
-            exit 1
-          fi
-
-      - name: Publish Console Result JSON
-        if: steps.vars.outputs.action != 'approve'
-        env:
-          IMAGE_REPO_PAT: ${{ secrets.IMAGE_REPO_PAT }}
-          IMAGE_REPO: CerberusITUK/daily-post-images
-          IMAGE_BRANCH: main
-        run: |
-          if [ -z "$CLIENT_JOB_ID" ]; then
-            echo "CLIENT_JOB_ID not provided; skipping result publish"
-            exit 0
-          fi
-
-          if [ -z "$CURRENT_SUMMARY" ] || [ -z "$CURRENT_IMAGE" ]; then
-            echo "Missing summary or image; cannot publish result"
-            exit 1
-          fi
-
-          python3 - <<'EOF'
-          import json, os
-
-          def split_hashtags(text: str):
-              return [tag for tag in text.split() if tag]
-
-          payload = {
-              "job_id": os.environ.get("CLIENT_JOB_ID", ""),
-              "summary": os.environ.get("CURRENT_SUMMARY", ""),
-              "hashtags": split_hashtags(os.environ.get("HASHTAGS_TEXT", "")),
-              "image": os.environ.get("CURRENT_IMAGE", ""),
-              "article_link": os.environ.get("ARTICLE_LINK", ""),
-              "article_date": os.environ.get("ARTICLE_DATE", ""),
-              "source_name": os.environ.get("SOURCE_NAME", "Source"),
-              "prompt_notes": os.environ.get("PROMPT_NOTES", ""),
-              "ai_prompt": os.environ.get("AI_PROMPT_TEXT", ""),
-              "article_context": os.environ.get("ARTICLE_SUMMARY", ""),
-          }
-
-          with open('console-result.json', 'w', encoding='utf-8') as fh:
-              json.dump(payload, fh, ensure_ascii=False)
-          EOF
-
-          if [ -z "$IMAGE_REPO_PAT" ]; then
-            echo "IMAGE_REPO_PAT secret missing; cannot publish result"
-            exit 1
-          fi
-
-          RESULT_PATH="results/$CLIENT_JOB_ID.json"
-          TMP_B64=$(mktemp)
-          if base64 -w 0 console-result.json > "$TMP_B64" 2>/dev/null; then
-            :
-          else
-            base64 console-result.json | tr -d '\n' > "$TMP_B64"
-          fi
-          B64_CONTENT=$(cat "$TMP_B64")
-          rm -f "$TMP_B64"
-          jq -n --arg message "Add console result $CLIENT_JOB_ID" --arg branch "${IMAGE_BRANCH:-main}" --arg content "$B64_CONTENT" '{message:$message,content:$content,branch:$branch}' > payload.json
-
-          API_URL="https://api.github.com/repos/$IMAGE_REPO/contents/$RESULT_PATH"
-          RESPONSE=$(curl -sS -X PUT "$API_URL" \
-            -H "Authorization: Bearer $IMAGE_REPO_PAT" \
-            -H "Accept: application/vnd.github+json" \
+          SAFE_PROMPT=$(jq -n --arg msg "A funny British comic book cartoon showing a frustrated IT support engineer in a server room dealing with an epic fail: $CURRENT_SUMMARY" '{"prompt": $msg}')
+          # Escape summary for JSON payload to Cloudflare
+          SAFE_PROMPT=$(jq -n --arg msg "A funny British comic book cartoon showing a frustrated IT support engineer in a server room dealing with an epic fail: $CURRENT_SUMMARY" '{"prompt": $msg}')
+          CF_URL="https://api.cloudflare.com/client/v4/accounts/${{ secrets.CF_AI_ACCOUNT_ID }}/ai/run/@cf/bytedance/stable-diffusion-xl-lightning"
+          RESPONSE=$(curl -s -X POST "$CF_URL" \
+            -H "Authorization: Bearer ${{ secrets.CF_AI_TOKEN }}" \
             -H "Content-Type: application/json" \
-            -d @payload.json)
+            -d "$SAFE_PROMPT")
 
-          echo "Result publish response: $RESPONSE"
-          if ! echo "$RESPONSE" | jq -e '.content.download_url' >/dev/null; then
-            echo "Failed to publish console result JSON"
-            exit 1
+          if echo "$RESPONSE" | jq -e '.success == true' >/dev/null 2>&1; then
+            IMAGE_BASE64=$(echo "$RESPONSE" | jq -r '.result.image')
+            if [ -n "$IMAGE_BASE64" ] && [ "$IMAGE_BASE64" != "null" ]; then
+              IMAGE_DATA="data:image/jpeg;base64,$IMAGE_BASE64"
+              echo "CURRENT_IMAGE=$IMAGE_DATA" >> $GITHUB_ENV
+              echo "IMAGE_SOURCE=Cloudflare AI" >> $GITHUB_ENV
+              exit 0
+            fi
           fi
+
+          echo "Primary image generation failed, falling back to Pollinations"
+          PROMPT=$(node -e "console.log(encodeURIComponent('Funny comic book cartoon of a frustrated IT support worker dealing with an IT fail ' + process.env.CURRENT_SUMMARY.substring(0, 80).replace(/[^a-zA-Z0-9 ]/g, ' ')))")
+          IMAGE_URL="https://image.pollinations.ai/prompt/$PROMPT"
+          echo "CURRENT_IMAGE=$IMAGE_URL" >> $GITHUB_ENV
+          echo "IMAGE_SOURCE=Pollinations" >> $GITHUB_ENV
 
       - name: Send Approval Email via Brevo
-        if: steps.vars.outputs.action != 'approve' && steps.vars.outputs.client_job_id == ''
+        if: steps.vars.outputs.action != 'approve'
         env:
           BREVO_KEY: ${{ secrets.BREVO_KEY }}
           BREVO_SENDER_NAME: ${{ secrets.BREVO_SENDER_NAME }}
           BREVO_SENDER_EMAIL: ${{ secrets.BREVO_SENDER_EMAIL }}
           APPROVER_EMAIL: ${{ secrets.APPROVER_EMAIL }}
           WORKER_URL: ${{ secrets.APPROVAL_WORKER_BASE_URL }}
-          SIGNING_SECRET: ${{ secrets.WORKER_SIGNING_SECRET }}
+          TOKEN: ${{ secrets.WORKER_SECRET_TOKEN }}
         run: |
-          python3 - << 'EOF'
-          import os, json, urllib.parse, hmac, hashlib, time, html
+          python3 -c "
+          import json
+          import os
+          import urllib.parse
 
-          summary = os.environ.get("CURRENT_SUMMARY", "")
-          hashtags = os.environ.get("HASHTAGS_TEXT", "")
-          image = os.environ.get("CURRENT_IMAGE", "")
-          link = os.environ.get("ARTICLE_LINK", "")
-          date = os.environ.get("ARTICLE_DATE", "")
-          source_name = os.environ.get("SOURCE_NAME", "Source")
-          worker_url = os.environ.get("WORKER_URL", "")
-          signing_secret = os.environ.get("SIGNING_SECRET", "")
-          article_context = os.environ.get("ARTICLE_SUMMARY", "")
-          ai_prompt = os.environ.get("AI_PROMPT_TEXT", "")
+          summary = os.environ.get('SUMMARY_TEXT', '')
+          hashtags = os.environ.get('HASHTAGS_TEXT', '')
+          link = os.environ.get('ARTICLE_LINK', '')
+          date = os.environ.get('ARTICLE_DATE', '')
+          image = os.environ.get('CURRENT_IMAGE', '')
+          worker_url = os.environ.get('WORKER_URL', '')
+          token = os.environ.get('TOKEN', '')
 
-          if not worker_url or not signing_secret:
-              raise SystemExit("Missing worker URL or signing secret")
+          enc_summary = urllib.parse.quote(summary)
+          enc_image = urllib.parse.quote(image)
+          enc_hashtags = urllib.parse.quote(hashtags)
+          enc_link = urllib.parse.quote(link)
+          enc_date = urllib.parse.quote(date)
+          approve_link = f'{worker_url}?action=approve&token={token}&summary={enc_summary}&image={enc_image}&hashtags={enc_hashtags}&link={enc_link}&date={enc_date}'
+          redo_story_link = f'{worker_url}?action=redo&token={token}'
+          redo_image_link = f'{worker_url}?action=redo_image&token={token}&summary={enc_summary}&hashtags={enc_hashtags}&link={enc_link}&date={enc_date}'
 
-          enc = lambda x: urllib.parse.quote(x)
+          sender_name = os.environ.get('BREVO_SENDER_NAME', '')
+          sender_email = os.environ.get('BREVO_SENDER_EMAIL', '')
+          approver_email = os.environ.get('APPROVER_EMAIL', '')
 
-          def build_signed_link(action, summary_value="", image_value="", hashtags_value="", link_value="", date_value="", source_name_value="Source"):
-              expires = str(int(time.time()) + 3600)
-              payload = "\n".join([
-                  action,
-                  summary_value,
-                  image_value,
-                  hashtags_value,
-                  link_value,
-                  date_value,
-                  source_name_value,
-                  expires,
-              ])
-              signature = hmac.new(signing_secret.encode("utf-8"), payload.encode("utf-8"), hashlib.sha256).hexdigest()
-              return (
-                  f"{worker_url}?action={enc(action)}"
-                  f"&summary={enc(summary_value)}"
-                  f"&image={enc(image_value)}"
-                  f"&hashtags={enc(hashtags_value)}"
-                  f"&link={enc(link_value)}"
-                  f"&date={enc(date_value)}"
-                  f"&source_name={enc(source_name_value)}"
-                  f"&expires={enc(expires)}"
-                  f"&sig={enc(signature)}"
-              )
-          
-          approve_link = build_signed_link("approve", summary, image, hashtags, link, date, source_name)
-          redo_story_link = build_signed_link("redo")
-          redo_image_link = build_signed_link("redo_image", summary, "", hashtags, link, date, source_name)
-
-          escaped_context = html.escape(article_context).replace('\n', '<br>') if article_context else 'No context captured.'
-          escaped_prompt = html.escape(ai_prompt).replace('\n', '<br>') if ai_prompt else 'No prompt captured.'
-          email_html = f"""
+          html = f\"\"\"
           <h2>Daily IT News Draft</h2>
-          <p><strong>Summary</strong><br>{summary}</p>
-          <p><strong>Hashtags</strong><br>{hashtags}</p>
-          <p><strong>Source</strong><br><a href='{link}'>{source_name}</a></p>
-          <p><strong>Date</strong><br>{date}</p>
-          <p><strong>Image</strong><br><img src='{image}' style='max-width:100%;max-height:400px;border-radius:8px'/></p>
-          <details style='margin-top:16px'>
-            <summary style='cursor:pointer;font-weight:bold;'>View article text sent to AI</summary>
-            <p style='margin-top:8px;font-size:0.9em;color:#555;'>{escaped_context}</p>
-          </details>
-          <details style='margin-top:12px'>
-            <summary style='cursor:pointer;font-weight:bold;'>View AI prompt</summary>
-            <p style='margin-top:8px;font-size:0.9em;color:#555;'>{escaped_prompt}</p>
-          </details>
-          <div style='margin-top:20px'>
-            <a href='{approve_link}' style='display:block;margin:8px 0;padding:12px 16px;background:#198754;color:#fff;text-decoration:none;border-radius:6px;font-weight:bold;'>Approve & Post</a>
-            <a href='{redo_story_link}' style='display:block;margin:8px 0;padding:12px 16px;background:#dc3545;color:#fff;text-decoration:none;border-radius:6px;font-weight:bold;'>Redo Story</a>
-            <a href='{redo_image_link}' style='display:block;margin:8px 0;padding:12px 16px;background:#fd7e14;color:#fff;text-decoration:none;border-radius:6px;font-weight:bold;'>Redo Image</a>
+          <p><strong>Summary</strong><br/>{summary}</p>
+          <p><strong>Hashtags</strong><br/>{hashtags}</p>
+          <p><strong>Source</strong><br/><a href='{link}'>{link}</a></p>
+          <p><strong>Date</strong><br/>{date}</p>
+          <p><strong>Image</strong><br/><img src='{image}' alt='News Image' style='max-width:100%;height:auto;max-height:400px;border-radius:8px;'/></p>
+          <div style='margin-top:20px;'>
+            <a href='{approve_link}' style='display:block;margin:8px 0;padding:12px 16px;background:#198754;color:#ffffff;text-decoration:none;border-radius:6px;font-weight:bold;'>Approve & Post</a>
+            <a href='{redo_story_link}' style='display:block;margin:8px 0;padding:12px 16px;background:#dc3545;color:#ffffff;text-decoration:none;border-radius:6px;font-weight:bold;'>Redo Story</a>
+            <a href='{redo_image_link}' style='display:block;margin:8px 0;padding:12px 16px;background:#fd7e14;color:#ffffff;text-decoration:none;border-radius:6px;font-weight:bold;'>Redo Image</a>
           </div>
-          """
+          \"\"\"
 
           payload = {
-              "sender": {"name": os.environ.get("BREVO_SENDER_NAME"), "email": os.environ.get("BREVO_SENDER_EMAIL")},
-              "to": [{"email": os.environ.get("APPROVER_EMAIL")}],
-              "subject": "Approval Required: Daily IT News",
-              "htmlContent": email_html
+              'sender': {'name': sender_name, 'email': sender_email},
+              'to': [{'email': approver_email}],
+              'subject': 'Approval Required: Daily IT News',
+              'htmlContent': html
           }
 
-          with open("payload.json","w") as f:
-              json.dump(payload,f)
-          EOF
+          with open('payload.json', 'w') as fh:
+              json.dump(payload, fh)
+          "
 
           curl -X POST "https://api.brevo.com/v3/smtp/email" \
             -H "accept: application/json" \

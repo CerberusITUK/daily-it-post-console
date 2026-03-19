@@ -82,12 +82,26 @@ async function handleLogin(request, env) {
 }
 
 async function handleArticles(env, url) {
-  if (url.searchParams.get('limit') && Number.isNaN(Number(url.searchParams.get('limit')))) {
+  const limitParam = Number(url.searchParams.get('limit'));
+  const offsetParam = Number(url.searchParams.get('offset'));
+
+  if (url.searchParams.get('limit') && Number.isNaN(limitParam)) {
     return jsonResponse(env, { error: 'Invalid limit' }, 400);
   }
-  const limit = Math.min(Number(url.searchParams.get('limit')) || 10, 15);
-  const articles = await collectArticles(limit);
-  return jsonResponse(env, { articles });
+  if (url.searchParams.get('offset') && Number.isNaN(offsetParam)) {
+    return jsonResponse(env, { error: 'Invalid offset' }, 400);
+  }
+
+  const limit = Math.min(limitParam > 0 ? limitParam : 10, 15);
+  const offset = Math.max(0, Number.isFinite(offsetParam) ? offsetParam : 0);
+  const requestedCount = Math.max(limit + offset, limit);
+  const cappedRequested = Math.min(requestedCount, 50);
+
+  const { articles, totalAvailable } = await collectArticles(cappedRequested);
+  const pagedArticles = articles.slice(offset, offset + limit);
+  const hasMore = totalAvailable > offset + pagedArticles.length;
+
+  return jsonResponse(env, { articles: pagedArticles, totalAvailable, hasMore });
 }
 
 async function handleJobStart(request, env) {
@@ -416,10 +430,11 @@ function timingSafeEqual(left, right) {
   return mismatch === 0;
 }
 
-async function collectArticles(limit) {
+async function collectArticles(targetCount) {
   const now = Date.now();
   const maxAgeMs = 7 * 24 * 60 * 60 * 1000;
   const results = [];
+  const desiredCount = Math.max(targetCount || 0, 1);
   await Promise.all(
     FEEDS.map(async ([url, region]) => {
       try {
@@ -457,21 +472,26 @@ async function collectArticles(limit) {
       return entry.published.getTime() >= cutoff;
     });
     console.log('Window', hours, 'articles', subset.length);
-    if (subset.length >= limit || hours === null) {
-      const balanced = selectBalancedArticles(subset, limit);
-      return balanced.map((entry) => ({
-        title: entry.title,
-        summary: entry.summary,
-        link: entry.link,
-        date: formatDate(entry.published),
-        source_name: entry.source_name || deriveSourceName(entry.link),
-        region: entry.region
-      }));
+    if (subset.length >= desiredCount || hours === null) {
+      const totalAvailable = subset.length;
+      const selectionCount = Math.min(totalAvailable, desiredCount);
+      const balanced = selectionCount > 0 ? selectBalancedArticles(subset, selectionCount) : [];
+      return {
+        articles: balanced.map((entry) => ({
+          title: entry.title,
+          summary: entry.summary,
+          link: entry.link,
+          date: formatDate(entry.published),
+          source_name: entry.source_name || deriveSourceName(entry.link),
+          region: entry.region
+        })),
+        totalAvailable
+      };
     }
   }
 
   console.warn('No articles available after all windows');
-  return [];
+  return { articles: [], totalAvailable: 0 };
 }
 
 function parseFeed(xml) {
