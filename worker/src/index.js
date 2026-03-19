@@ -180,7 +180,15 @@ async function getJobStatus(env, jobId) {
   let output = null;
 
   if (status === 'success') {
-    output = await readConsoleArtifact(env, run.id, jobId);
+    output = await readImageRepoResult(env, jobId) || await readConsoleArtifact(env, run.id, jobId);
+  }
+
+  const logs = [`GitHub run ${run.status} (${run.conclusion || 'n/a'})`];
+  if (output?.summary) {
+    logs.push(`Summary: ${output.summary}`);
+  }
+  if (output?.image) {
+    logs.push(`Image: ${output.image}`);
   }
 
   return jsonResponse(env, {
@@ -188,7 +196,7 @@ async function getJobStatus(env, jobId) {
     conclusion: run.conclusion,
     runId: run.id,
     output,
-    logs: [`GitHub run ${run.status} (${run.conclusion || 'n/a'})`]
+    logs
   });
 }
 
@@ -314,6 +322,50 @@ async function readConsoleArtifact(env, runId, jobId) {
     return JSON.parse(text);
   } catch (err) {
     console.error('Artifact JSON parse error', err);
+    return null;
+  }
+}
+
+async function readImageRepoResult(env, jobId) {
+  const token = env.IMAGE_REPO_PAT;
+  if (!token) {
+    console.warn('IMAGE_REPO_PAT missing; cannot fetch result payload');
+    return null;
+  }
+
+  const repo = env.IMAGE_RESULT_REPO || 'CerberusITUK/daily-post-images';
+  const branch = env.IMAGE_RESULT_BRANCH || 'main';
+  const sanitizedJobId = jobId.replace(/[^a-zA-Z0-9-_]/g, '');
+  const path = `/repos/${repo}/contents/results/${sanitizedJobId}.json?ref=${encodeURIComponent(branch)}`;
+
+  const headers = new Headers({
+    Accept: 'application/vnd.github+json',
+    Authorization: `Bearer ${token}`,
+    'User-Agent': 'Daily-IT-Console',
+    'X-GitHub-Api-Version': '2022-11-28'
+  });
+
+  const res = await fetch(`https://api.github.com${path}`, { headers });
+  if (res.status === 404) {
+    return null;
+  }
+  if (!res.ok) {
+    console.error('Result JSON fetch failed', res.status, await res.text());
+    return null;
+  }
+
+  try {
+    const payload = await res.json();
+    const encoded = typeof payload.content === 'string' ? payload.content : '';
+    if (!encoded) {
+      console.warn('Result JSON missing content field');
+      return null;
+    }
+    const normalized = encoded.replace(/\n/g, '');
+    const text = atob(normalized);
+    return JSON.parse(text);
+  } catch (err) {
+    console.error('Result JSON parse error', err);
     return null;
   }
 }
