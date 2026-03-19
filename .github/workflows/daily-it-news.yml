@@ -819,7 +819,7 @@ jobs:
           fi
 
       - name: Send Approval Email via Brevo
-        if: steps.vars.outputs.action != 'approve'
+        if: steps.vars.outputs.action != 'approve' && steps.vars.outputs.client_job_id == ''
         env:
           BREVO_KEY: ${{ secrets.BREVO_KEY }}
           BREVO_SENDER_NAME: ${{ secrets.BREVO_SENDER_NAME }}
