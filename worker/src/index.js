@@ -581,6 +581,18 @@ function selectBalancedArticles(entries, limit) {
     if (!addedThisRound) break;
   }
 
+  if (selected.length < maxItems) {
+    const leftovers = [];
+    for (const bucket of buckets.values()) {
+      leftovers.push(...bucket);
+    }
+    leftovers.sort((a, b) => b.score - a.score || (b.published?.getTime() || 0) - (a.published?.getTime() || 0));
+    for (const entry of leftovers) {
+      selected.push(entry);
+      if (selected.length === maxItems) break;
+    }
+  }
+
   return selected;
 }
 

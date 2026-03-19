@@ -326,16 +326,28 @@ async function pollJob() {
     if (data.logs?.length) {
       data.logs.slice(-3).forEach((msg) => addLog(msg));
     }
-    if (data.status === 'success' && data.output) {
-      state.lastResultJobId = state.currentJobId;
-      state.lastResult = data.output;
-      state.lastArticlePayload = state.pendingArticle;
-      saveSession();
+    if (data.output) {
+      renderResults(data.output);
     }
-    state.currentJobId = null;
-    state.pendingArticle = null;
-    updateButtons();
-    if (data.status === 'failed') updateJobStatus('Failed', 'danger');
+
+    if (['success', 'failed', 'cancelled'].includes(data.status)) {
+      if (data.status === 'success' && data.output) {
+        state.lastResultJobId = state.currentJobId;
+        state.lastResult = data.output;
+        state.lastArticlePayload = state.pendingArticle;
+        saveSession();
+      }
+
+      addLog(`Job ${data.status}`);
+      stopPolling();
+      state.currentJobId = null;
+      state.pendingArticle = null;
+      updateButtons();
+
+      if (data.status === 'failed') {
+        updateJobStatus('Failed', 'danger');
+      }
+    }
   } catch (err) {
     addLog(`Polling error: ${err.message}`, 'error');
   }
