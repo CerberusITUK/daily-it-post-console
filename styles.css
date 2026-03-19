@@ -110,6 +110,7 @@ button {
   padding: 0.85rem 1.5rem;
   cursor: pointer;
   font-weight: 600;
+  color: var(--text);
   transition: transform 0.2s ease, box-shadow 0.2s ease, filter 0.2s ease;
 }
 
