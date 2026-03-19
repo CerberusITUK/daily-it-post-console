@@ -47,10 +47,14 @@ function saveSession() {
     sessionStorage.removeItem(storageKey);
     return;
   }
-  sessionStorage.setItem(
-    storageKey,
-    JSON.stringify({ token: state.token, tokenExpiry: state.tokenExpiry })
-  );
+  const payload = {
+    token: state.token,
+    tokenExpiry: state.tokenExpiry,
+    lastResultJobId: state.lastResultJobId,
+    lastResult: state.lastResult,
+    lastArticlePayload: state.lastArticlePayload,
+  };
+  sessionStorage.setItem(storageKey, JSON.stringify(payload));
 }
 
 function restoreSession() {
@@ -61,7 +65,16 @@ function restoreSession() {
     if (data.token && data.tokenExpiry && Date.now() < data.tokenExpiry) {
       state.token = data.token;
       state.tokenExpiry = data.tokenExpiry;
+      state.lastResultJobId = data.lastResultJobId || null;
+      state.lastResult = data.lastResult || null;
+      state.lastArticlePayload = data.lastArticlePayload || null;
       showApp();
+      if (state.lastResult) {
+        renderResults(state.lastResult);
+        updateJobStatus('Ready', 'success');
+        addLog('Restored last draft result from previous session');
+      }
+      updateButtons();
       return;
     }
   } catch (err) {
@@ -132,6 +145,9 @@ async function handleLogin(evt) {
 function logout() {
   state.token = null;
   state.tokenExpiry = null;
+  state.lastResultJobId = null;
+  state.lastResult = null;
+  state.lastArticlePayload = null;
   saveSession();
   showAuth();
   resetUI();
@@ -143,6 +159,9 @@ function resetUI() {
   state.jobHistory = [];
   state.currentJobId = null;
   stopPolling();
+  state.lastResultJobId = null;
+  state.lastResult = null;
+  state.lastArticlePayload = null;
   elements.articlesContainer.innerHTML = '';
   elements.articlesEmpty.classList.remove('hidden');
   renderArticleDetails();
@@ -263,9 +282,10 @@ async function triggerJob(action) {
   const article = state.articles[state.selectedArticle];
   if (!article) return;
 
+  const articlePayload = JSON.parse(JSON.stringify(article));
   const payload = {
     action,
-    article,
+    article: articlePayload,
     promptNotes: elements.promptNotesInput.value.trim(),
   };
 
@@ -277,6 +297,7 @@ async function triggerJob(action) {
       body: JSON.stringify(payload),
     });
     state.currentJobId = data.jobId;
+    state.pendingArticle = articlePayload;
     startPolling();
   } catch (err) {
     addLog(`Job failed to start: ${err.message}`, 'error');
@@ -305,13 +326,16 @@ async function pollJob() {
     if (data.logs?.length) {
       data.logs.slice(-3).forEach((msg) => addLog(msg));
     }
-    if (data.output) renderResults(data.output);
-    if (['success', 'failed', 'cancelled'].includes(data.status)) {
-      addLog(`Job ${data.status}`);
-      stopPolling();
-      state.currentJobId = null;
-      if (data.status === 'failed') updateJobStatus('Failed', 'danger');
+    if (data.status === 'success' && data.output) {
+      state.lastResultJobId = state.currentJobId;
+      state.lastResult = data.output;
+      state.lastArticlePayload = state.pendingArticle;
+      saveSession();
     }
+    state.currentJobId = null;
+    state.pendingArticle = null;
+    updateButtons();
+    if (data.status === 'failed') updateJobStatus('Failed', 'danger');
   } catch (err) {
     addLog(`Polling error: ${err.message}`, 'error');
   }
@@ -333,16 +357,25 @@ function renderResults(output) {
 }
 
 async function approveCurrent() {
-  if (!state.currentJobId) {
-    addLog('No draft job to approve. Run the AI draft first.', 'error');
+  if (state.currentJobId) {
+    addLog('Job still running. Wait for it to finish before approving.', 'error');
     return;
   }
   try {
-    await apiFetch(`/api/jobs/${state.currentJobId}/actions`, {
+    await apiFetch(`/api/jobs/${state.lastResultJobId}/actions`, {
       method: 'POST',
-      body: JSON.stringify({ action: 'approve' }),
+      body: JSON.stringify({
+        action: 'approve',
+        result: state.lastResult,
+        article: state.lastArticlePayload || {},
+      }),
     });
     addLog('Approval sent to workflow');
+    state.lastResultJobId = null;
+    state.lastResult = null;
+    state.lastArticlePayload = null;
+    saveSession();
+    updateButtons();
   } catch (err) {
     addLog(`Approval failed: ${err.message}`, 'error');
   }
