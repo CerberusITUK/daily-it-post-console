@@ -100,16 +100,28 @@ jobs:
           EOF
 
       - name: Export UI Inputs
+        env:
+          CLIENT_JOB_ID: ${{ steps.vars.outputs.client_job_id }}
+          PROMPT_NOTES: ${{ steps.vars.outputs.prompt_notes }}
+          ARTICLE_PAYLOAD: ${{ steps.vars.outputs.article_payload }}
         run: |
-          {
-            printf "CLIENT_JOB_ID=%s\n" "${{ steps.vars.outputs.client_job_id }}"
-            printf "PROMPT_NOTES<<'EOPN'\n"
-            printf "%s\n" "${{ steps.vars.outputs.prompt_notes }}"
-            printf "EOPN\n"
-            printf "ARTICLE_PAYLOAD<<'EOAP'\n"
-            printf "%s\n" "${{ steps.vars.outputs.article_payload }}"
-            printf "EOAP\n"
-          } >> "$GITHUB_ENV"
+          python - <<'PY'
+          import os
+
+          env_path = os.environ["GITHUB_ENV"]
+          client_job_id = os.environ.get("CLIENT_JOB_ID", "")
+          prompt_notes = os.environ.get("PROMPT_NOTES", "")
+          article_payload = os.environ.get("ARTICLE_PAYLOAD", "")
+
+          with open(env_path, "a", encoding="utf-8") as fh:
+              fh.write(f"CLIENT_JOB_ID={client_job_id}\n")
+              fh.write("PROMPT_NOTES<<EOF\n")
+              fh.write(prompt_notes + "\n")
+              fh.write("EOF\n")
+              fh.write("ARTICLE_PAYLOAD<<EOF\n")
+              fh.write(article_payload + "\n")
+              fh.write("EOF\n")
+          PY
 
       - name: Install dependencies
         if: always()
