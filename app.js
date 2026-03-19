@@ -8,21 +8,28 @@ const elements = {
   usernameInput: document.getElementById('login-username'),
   passwordInput: document.getElementById('login-password'),
   logoutBtn: document.getElementById('logout-btn'),
+  
+  // Views
+  viewList: document.getElementById('view-list'),
+  viewPreview: document.getElementById('view-preview'),
+  backToListBtn: document.getElementById('back-to-list-btn'),
+  
+  // List View elements
   fetchArticlesBtn: document.getElementById('fetch-articles-btn'),
+  loadMoreBtn: document.getElementById('load-more-btn'),
   articlesContainer: document.getElementById('articles-container'),
   articlesEmpty: document.getElementById('articles-empty'),
-  articleTitle: document.getElementById('article-title'),
-  articleMeta: document.getElementById('article-meta'),
-  articleSummary: document.getElementById('article-summary'),
+  
+  // Preview View elements
   articleLink: document.getElementById('article-link'),
   promptNotesInput: document.getElementById('prompt-notes-input'),
-  runDraftBtn: document.getElementById('run-draft-btn'),
   redoStoryBtn: document.getElementById('redo-story-btn'),
   redoImageBtn: document.getElementById('redo-image-btn'),
   approveBtn: document.getElementById('approve-btn'),
   resultSummary: document.getElementById('result-summary'),
   resultHashtags: document.getElementById('result-hashtags'),
   resultImage: document.getElementById('result-image'),
+  imagePlaceholder: document.getElementById('image-placeholder'),
   jobStatusPill: document.getElementById('job-status-pill'),
   jobLogList: document.getElementById('job-log-list'),
   clearLogBtn: document.getElementById('clear-log-btn'),
@@ -37,6 +44,8 @@ const state = {
   pollTimer: null,
   selectedArticle: null,
   articles: [],
+  articleOffset: 0,
+  hasMoreArticles: false,
   jobHistory: [],
 };
 
@@ -70,9 +79,16 @@ function restoreSession() {
       state.lastArticlePayload = data.lastArticlePayload || null;
       showApp();
       if (state.lastResult) {
+        showPreviewView();
         renderResults(state.lastResult);
         updateJobStatus('Ready', 'success');
         addLog('Restored last draft result from previous session');
+        
+        // Restore article link if we have the payload
+        if (state.lastArticlePayload && state.lastArticlePayload.link) {
+          elements.articleLink.setAttribute('href', state.lastArticlePayload.link);
+          elements.articleLink.setAttribute('aria-disabled', 'false');
+        }
       }
       updateButtons();
       return;
@@ -86,11 +102,40 @@ function restoreSession() {
 function showApp() {
   elements.authPanel.classList.add('hidden');
   elements.appPanel.classList.remove('hidden');
+  showListView();
 }
 
 function showAuth() {
   elements.appPanel.classList.add('hidden');
   elements.authPanel.classList.remove('hidden');
+}
+
+function showListView() {
+  elements.viewPreview.classList.add('hidden');
+  elements.viewList.classList.remove('hidden');
+  
+  // Clear preview state when going back to list
+  if (!state.currentJobId && !state.lastResultJobId) {
+    clearPreview();
+  }
+}
+
+function showPreviewView() {
+  elements.viewList.classList.add('hidden');
+  elements.viewPreview.classList.remove('hidden');
+}
+
+function clearPreview() {
+  elements.resultSummary.textContent = 'AI is generating the summary...';
+  elements.resultSummary.classList.add('muted');
+  elements.resultHashtags.textContent = '';
+  elements.resultHashtags.classList.add('muted');
+  elements.resultImage.src = '';
+  elements.resultImage.classList.remove('visible');
+  elements.imagePlaceholder.classList.remove('hidden');
+  elements.articleLink.setAttribute('aria-disabled', 'true');
+  elements.articleLink.removeAttribute('href');
+  elements.promptNotesInput.value = '';
 }
 
 async function apiFetch(path, options = {}) {
@@ -136,6 +181,9 @@ async function handleLogin(evt) {
     saveSession();
     showApp();
     addLog('Logged in successfully');
+    
+    // Auto-fetch articles on login
+    fetchArticles();
   } catch (err) {
     console.error(err);
     elements.loginError.textContent = err.message || 'Login failed';
@@ -156,6 +204,8 @@ function logout() {
 function resetUI() {
   state.articles = [];
   state.selectedArticle = null;
+  state.articleOffset = 0;
+  state.hasMoreArticles = false;
   state.jobHistory = [];
   state.currentJobId = null;
   stopPolling();
@@ -164,25 +214,60 @@ function resetUI() {
   state.lastArticlePayload = null;
   elements.articlesContainer.innerHTML = '';
   elements.articlesEmpty.classList.remove('hidden');
-  renderArticleDetails();
+  updateLoadMoreVisibility();
+  clearPreview();
   renderJobLog();
   updateButtons();
   updateJobStatus('Idle', 'muted');
+  showListView();
 }
 
-async function fetchArticles() {
+function updateLoadMoreVisibility() {
+  if (!state.articles.length || !state.hasMoreArticles) {
+    elements.loadMoreBtn.classList.add('hidden');
+  } else {
+    elements.loadMoreBtn.classList.remove('hidden');
+  }
+}
+
+async function fetchArticles(options = {}) {
   if (!state.token) return;
-  setLoading(elements.fetchArticlesBtn, true);
+  const { append = false } = options;
+  const button = append ? elements.loadMoreBtn : elements.fetchArticlesBtn;
+  setLoading(button, true);
   try {
-    const data = await apiFetch(`/api/articles?limit=${CONFIG.maxArticles}`);
-    state.articles = data.articles || [];
+    const offset = append ? state.articleOffset : 0;
+    if (!append) {
+      state.selectedArticle = null;
+      state.articleOffset = 0;
+      state.hasMoreArticles = false;
+    }
+
+    const params = new URLSearchParams({
+      limit: '20', // Updated to 20 per request
+      offset: String(offset),
+    });
+    const data = await apiFetch(`/api/articles?${params.toString()}`);
+    const incoming = data.articles || [];
+
+    state.articleOffset = offset + incoming.length;
+    state.hasMoreArticles = Boolean(data.hasMore);
+    state.articles = append ? [...state.articles, ...incoming] : incoming;
     renderArticles();
-    addLog(`Fetched ${state.articles.length} article(s)`);
+    updateLoadMoreVisibility();
+    const logMsg = append
+      ? `Loaded ${incoming.length} more article(s)`
+      : `Fetched ${state.articles.length} article(s)`;
+    addLog(logMsg);
   } catch (err) {
     addLog(`Failed to fetch articles: ${err.message}`, 'error');
   } finally {
-    setLoading(elements.fetchArticlesBtn, false);
+    setLoading(button, false);
   }
+}
+
+async function loadMoreArticles() {
+  await fetchArticles({ append: true });
 }
 
 function renderArticles() {
@@ -201,43 +286,37 @@ function renderArticles() {
     button.querySelector('.article-source').textContent = article.source_name || 'Source';
     button.querySelector('.article-date').textContent = article.date || '';
     if (state.selectedArticle === idx) button.classList.add('active');
-    button.addEventListener('click', () => selectArticle(idx));
+    button.addEventListener('click', () => selectArticleAndDraft(idx));
     elements.articlesContainer.appendChild(clone);
   });
 }
 
-function selectArticle(index) {
+function selectArticleAndDraft(index) {
   state.selectedArticle = index;
-  renderArticles();
-  renderArticleDetails();
-  updateButtons();
-  addLog(`Selected article: ${state.articles[index]?.title || 'Untitled'}`);
-}
+  const article = state.articles[index];
+  if (!article) return;
 
-function renderArticleDetails() {
-  const article = state.articles[state.selectedArticle] || null;
-  if (!article) {
-    elements.articleTitle.textContent = 'No article selected';
-    elements.articleMeta.textContent = 'Pick a story from the left to begin.';
-    elements.articleSummary.textContent = '';
-    elements.articleLink.setAttribute('aria-disabled', 'true');
-    elements.articleLink.removeAttribute('href');
-    return;
+  // Setup preview UI for new draft
+  clearPreview();
+  if (article.link) {
+    elements.articleLink.setAttribute('href', article.link);
+    elements.articleLink.setAttribute('aria-disabled', 'false');
   }
-  elements.articleTitle.textContent = article.title;
-  elements.articleMeta.textContent = `${article.source_name || 'Source'} · ${article.date || ''}`;
-  elements.articleSummary.textContent = article.summary || 'No summary text available.';
-  elements.articleLink.textContent = 'Open source article';
-  elements.articleLink.setAttribute('href', article.link || '#');
-  elements.articleLink.setAttribute('aria-disabled', article.link ? 'false' : 'true');
+  
+  // Switch to preview view
+  showPreviewView();
+  
+  // Automatically trigger the draft job
+  triggerJob('draft');
+  
+  addLog(`Selected and drafting: ${article.title || 'Untitled'}`);
 }
 
 function updateButtons() {
-  const hasArticle = state.selectedArticle !== null;
-  elements.runDraftBtn.disabled = !hasArticle;
-  elements.redoStoryBtn.disabled = !hasArticle;
-  elements.redoImageBtn.disabled = !hasArticle;
-  elements.approveBtn.disabled = !hasArticle;
+  const hasResult = state.lastResultJobId !== null;
+  elements.redoStoryBtn.disabled = !hasResult && !state.currentJobId;
+  elements.redoImageBtn.disabled = !hasResult && !state.currentJobId;
+  elements.approveBtn.disabled = !hasResult;
 }
 
 function addLog(message, level = 'info') {
@@ -263,10 +342,21 @@ function renderJobLog() {
 }
 
 function setLoading(button, isLoading) {
-  button.disabled = isLoading || button.disabled;
-  button.dataset.loading = isLoading ? 'true' : 'false';
-  if (isLoading) button.textContent = 'Working…';
-  else button.textContent = button.dataset.resetText || button.textContent;
+  if (!button) return;
+  if (isLoading) {
+    if (!button.dataset.resetText) {
+      button.dataset.resetText = button.textContent;
+    }
+    button.disabled = true;
+    button.dataset.loading = 'true';
+    button.textContent = 'Working…';
+  } else {
+    button.disabled = false;
+    button.dataset.loading = 'false';
+    if (button.dataset.resetText) {
+      button.textContent = button.dataset.resetText;
+    }
+  }
 }
 
 function updateJobStatus(text, variant = 'muted') {
@@ -279,10 +369,21 @@ async function triggerJob(action) {
     addLog('A job is already running. Please wait.', 'error');
     return;
   }
-  const article = state.articles[state.selectedArticle];
-  if (!article) return;
+  
+  // For 'draft', we use selectedArticle. For redos, we use lastArticlePayload.
+  let articlePayload;
+  if (action === 'draft') {
+    const article = state.articles[state.selectedArticle];
+    if (!article) return;
+    articlePayload = JSON.parse(JSON.stringify(article));
+  } else {
+    if (!state.lastArticlePayload) {
+      addLog('No article context available for redo.', 'error');
+      return;
+    }
+    articlePayload = state.lastArticlePayload;
+  }
 
-  const articlePayload = JSON.parse(JSON.stringify(article));
   const payload = {
     action,
     article: articlePayload,
@@ -292,16 +393,32 @@ async function triggerJob(action) {
   try {
     addLog(`Starting job: ${action}`);
     updateJobStatus('Running', 'primary');
+    
+    // Clear results UI while running a redo
+    if (action === 'redo' || action === 'draft') {
+      elements.resultSummary.textContent = 'AI is generating the summary...';
+      elements.resultSummary.classList.add('muted');
+      elements.resultHashtags.textContent = '';
+    }
+    if (action === 'redo_image' || action === 'redo' || action === 'draft') {
+      elements.resultImage.classList.remove('visible');
+      elements.imagePlaceholder.classList.remove('hidden');
+    }
+
+    updateButtons();
+
     const data = await apiFetch('/api/jobs', {
       method: 'POST',
       body: JSON.stringify(payload),
     });
+    
     state.currentJobId = data.jobId;
     state.pendingArticle = articlePayload;
     startPolling();
   } catch (err) {
     addLog(`Job failed to start: ${err.message}`, 'error');
     updateJobStatus('Failed', 'danger');
+    updateButtons();
   }
 }
 
@@ -359,12 +476,13 @@ function renderResults(output) {
     elements.resultSummary.classList.remove('muted');
   }
   if (output.hashtags) {
-    elements.resultHashtags.textContent = output.hashtags.join(' ');
+    elements.resultHashtags.textContent = Array.isArray(output.hashtags) ? output.hashtags.join(' ') : output.hashtags;
     elements.resultHashtags.classList.remove('muted');
   }
   if (output.image) {
     elements.resultImage.src = output.image;
     elements.resultImage.classList.add('visible');
+    elements.imagePlaceholder.classList.add('hidden');
   }
 }
 
@@ -373,6 +491,12 @@ async function approveCurrent() {
     addLog('Job still running. Wait for it to finish before approving.', 'error');
     return;
   }
+  if (!state.lastResultJobId) {
+    addLog('No draft job to approve. Run an AI draft first.', 'error');
+    return;
+  }
+  
+  setLoading(elements.approveBtn, true);
   try {
     await apiFetch(`/api/jobs/${state.lastResultJobId}/actions`, {
       method: 'POST',
@@ -382,22 +506,33 @@ async function approveCurrent() {
         article: state.lastArticlePayload || {},
       }),
     });
-    addLog('Approval sent to workflow');
+    addLog('Approval sent to workflow successfully', 'success');
+    
+    // Once approved, clear state so they can pick a new article
     state.lastResultJobId = null;
     state.lastResult = null;
     state.lastArticlePayload = null;
     saveSession();
     updateButtons();
+    
+    // Automatically take them back to the list
+    setTimeout(() => {
+      showListView();
+    }, 1500);
+    
   } catch (err) {
     addLog(`Approval failed: ${err.message}`, 'error');
+  } finally {
+    setLoading(elements.approveBtn, false);
   }
 }
 
 function bindEvents() {
   elements.loginForm.addEventListener('submit', handleLogin);
   elements.logoutBtn.addEventListener('click', logout);
-  elements.fetchArticlesBtn.addEventListener('click', fetchArticles);
-  elements.runDraftBtn.addEventListener('click', () => triggerJob('draft'));
+  elements.fetchArticlesBtn.addEventListener('click', () => fetchArticles());
+  elements.loadMoreBtn.addEventListener('click', loadMoreArticles);
+  elements.backToListBtn.addEventListener('click', showListView);
   elements.redoStoryBtn.addEventListener('click', () => triggerJob('redo'));
   elements.redoImageBtn.addEventListener('click', () => triggerJob('redo_image'));
   elements.approveBtn.addEventListener('click', approveCurrent);
