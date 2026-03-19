@@ -253,7 +253,11 @@ async function fetchArticles(options = {}) {
 
     state.articleOffset = offset + incoming.length;
     state.hasMoreArticles = Boolean(data.hasMore);
-    state.articles = append ? [...state.articles, ...incoming] : incoming;
+    
+    // Filter out hidden articles from incoming payload *before* appending to state
+    const visibleIncoming = incoming.filter(article => !state.hiddenArticles.has(article.link));
+    
+    state.articles = append ? [...state.articles, ...visibleIncoming] : visibleIncoming;
     renderArticles();
     updateLoadMoreVisibility();
     const logMsg = append
@@ -282,7 +286,7 @@ function hideArticle(index, event) {
   state.articles.splice(index, 1);
   if (state.selectedArticle === index) {
     state.selectedArticle = null;
-  } else if (state.selectedArticle > index) {
+  } else if (state.selectedArticle !== null && state.selectedArticle > index) {
     state.selectedArticle--;
   }
   renderArticles();
@@ -290,9 +294,6 @@ function hideArticle(index, event) {
 
 function renderArticles() {
   elements.articlesContainer.innerHTML = '';
-  
-  // Filter out hidden articles from current list
-  state.articles = state.articles.filter(article => !state.hiddenArticles.has(article.link));
   
   if (!state.articles.length) {
     elements.articlesEmpty.classList.remove('hidden');
