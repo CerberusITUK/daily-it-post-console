@@ -113,11 +113,14 @@
 
     <template id="article-item-template">
       <li>
-        <button class="article-item">
-          <span class="article-title"></span>
-          <span class="article-source"></span>
-          <span class="article-date"></span>
-        </button>
+        <div class="article-item-wrapper">
+          <button class="article-item">
+            <span class="article-title"></span>
+            <span class="article-source"></span>
+            <span class="article-date"></span>
+          </button>
+          <button class="hide-btn" aria-label="Hide article" title="Hide this article">×</button>
+        </div>
       </li>
     </template>
 

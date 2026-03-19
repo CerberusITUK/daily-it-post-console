@@ -47,6 +47,7 @@ const state = {
   articleOffset: 0,
   hasMoreArticles: false,
   jobHistory: [],
+  hiddenArticles: new Set(JSON.parse(localStorage.getItem('hiddenArticles') || '[]')),
 };
 
 const storageKey = 'daily-it-console-session';
@@ -270,8 +271,29 @@ async function loadMoreArticles() {
   await fetchArticles({ append: true });
 }
 
+function hideArticle(index, event) {
+  event.stopPropagation();
+  const article = state.articles[index];
+  if (article && article.link) {
+    state.hiddenArticles.add(article.link);
+    localStorage.setItem('hiddenArticles', JSON.stringify([...state.hiddenArticles]));
+  }
+  // Remove from current view
+  state.articles.splice(index, 1);
+  if (state.selectedArticle === index) {
+    state.selectedArticle = null;
+  } else if (state.selectedArticle > index) {
+    state.selectedArticle--;
+  }
+  renderArticles();
+}
+
 function renderArticles() {
   elements.articlesContainer.innerHTML = '';
+  
+  // Filter out hidden articles from current list
+  state.articles = state.articles.filter(article => !state.hiddenArticles.has(article.link));
+  
   if (!state.articles.length) {
     elements.articlesEmpty.classList.remove('hidden');
     return;
@@ -281,12 +303,17 @@ function renderArticles() {
   state.articles.forEach((article, idx) => {
     const clone = articleTemplate.content.cloneNode(true);
     const button = clone.querySelector('.article-item');
+    const hideBtn = clone.querySelector('.hide-btn');
+    
     button.dataset.index = idx;
     button.querySelector('.article-title').textContent = article.title || 'Untitled';
     button.querySelector('.article-source').textContent = article.source_name || 'Source';
     button.querySelector('.article-date').textContent = article.date || '';
     if (state.selectedArticle === idx) button.classList.add('active');
+    
     button.addEventListener('click', () => selectArticleAndDraft(idx));
+    hideBtn.addEventListener('click', (e) => hideArticle(idx, e));
+    
     elements.articlesContainer.appendChild(clone);
   });
 }
