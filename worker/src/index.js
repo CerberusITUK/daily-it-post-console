@@ -458,12 +458,13 @@ async function collectArticles(limit) {
     });
     console.log('Window', hours, 'articles', subset.length);
     if (subset.length >= limit || hours === null) {
-      return subset.slice(0, limit).map((entry) => ({
+      const balanced = selectBalancedArticles(subset, limit);
+      return balanced.map((entry) => ({
         title: entry.title,
         summary: entry.summary,
         link: entry.link,
         date: formatDate(entry.published),
-        source_name: deriveSourceName(entry.link),
+        source_name: entry.source_name || deriveSourceName(entry.link),
         region: entry.region
       }));
     }
@@ -555,6 +556,32 @@ function deduplicateByLink(items) {
     seen.add(key);
     return true;
   });
+}
+
+function selectBalancedArticles(entries, limit) {
+  const maxItems = Math.min(limit, entries.length);
+  const buckets = new Map();
+  for (const entry of entries) {
+    const sourceName = entry.source_name || deriveSourceName(entry.link);
+    if (!buckets.has(sourceName)) {
+      buckets.set(sourceName, []);
+    }
+    buckets.get(sourceName).push({ ...entry, source_name: sourceName });
+  }
+
+  const selected = [];
+  while (selected.length < maxItems) {
+    let addedThisRound = false;
+    for (const bucket of buckets.values()) {
+      if (!bucket.length) continue;
+      selected.push(bucket.shift());
+      addedThisRound = true;
+      if (selected.length === maxItems) break;
+    }
+    if (!addedThisRound) break;
+  }
+
+  return selected;
 }
 
 function deriveSourceName(url) {
