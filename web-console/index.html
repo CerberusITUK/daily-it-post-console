@@ -39,64 +39,74 @@
           </div>
         </header>
 
-        <div class="controls">
-          <button id="fetch-articles-btn" class="primary">Fetch 10 fresh articles</button>
-          <span id="job-status-pill" class="pill muted">Idle</span>
-        </div>
-
         <div class="workspace">
-          <aside class="articles-list" aria-label="Candidate articles">
-            <header>
-              <h3>Feed picks</h3>
-              <p class="muted">Newest 24h · weighted to UK/EU common-man stories.</p>
+          <!-- VIEW 1: List View -->
+          <div id="view-list" class="view-panel">
+            <div class="controls-bar">
+              <button id="fetch-articles-btn" class="primary">Fetch News</button>
+              <p class="muted info-text">Select an article below to automatically generate an AI summary and cartoon.</p>
+            </div>
+            
+            <section class="articles-grid-container" aria-label="Candidate articles">
+              <ul id="articles-container" class="articles-grid"></ul>
+              <div class="list-footer">
+                <p id="articles-empty" class="muted">Press "Fetch News" to populate this list.</p>
+                <button id="load-more-btn" class="ghost hidden" type="button">Fetch More</button>
+              </div>
+            </section>
+          </div>
+
+          <!-- VIEW 2: Preview View -->
+          <div id="view-preview" class="view-panel hidden">
+            <header class="preview-header">
+              <button id="back-to-list-btn" class="ghost">← Back to News</button>
+              <span id="job-status-pill" class="pill muted">Idle</span>
             </header>
-            <ul id="articles-container"></ul>
-            <p id="articles-empty" class="muted">Press "Fetch 10 fresh articles" to populate this list.</p>
-            <button id="load-more-btn" class="ghost full-width hidden" type="button">Load 10 more</button>
-          </aside>
 
-          <section class="detail-panel">
-            <div class="selected-article card">
-              <header>
-                <h3 id="article-title">No article selected</h3>
-                <p id="article-meta" class="muted">Pick a story from the left to begin.</p>
-              </header>
-              <p id="article-summary" class="article-summary"></p>
-              <a id="article-link" href="#" target="_blank" rel="noopener" class="muted external-link" aria-disabled="true">Open source article</a>
-            </div>
+            <div class="preview-content">
+              <div class="main-column">
+                <div class="results card">
+                  <header class="card-header">
+                    <h3>Draft Preview</h3>
+                    <a id="article-link" href="#" target="_blank" rel="noopener" class="muted external-link" aria-disabled="true">Source Article ↗</a>
+                  </header>
+                  <div class="results-layout">
+                    <div class="results-text">
+                      <p id="result-summary" class="article-summary muted">AI is generating the summary...</p>
+                      <p id="result-hashtags" class="hashtags muted"></p>
+                    </div>
+                    <div class="results-image">
+                      <img id="result-image" alt="Cartoon preview" />
+                      <div id="image-placeholder" class="image-placeholder">Generating image...</div>
+                    </div>
+                  </div>
+                </div>
 
-            <div class="prompt-notes card">
-              <label for="prompt-notes-input">Prompt add-ons</label>
-              <textarea id="prompt-notes-input" rows="3" placeholder="Optional: add guidance for the AI (tone tweaks, facts to stress, etc.)"></textarea>
-              <p class="muted">This text is appended to the existing cynical BOFH prompt.</p>
-            </div>
+                <div class="prompt-notes card">
+                  <label for="prompt-notes-input">Additional Prompt Notes (for redos)</label>
+                  <textarea id="prompt-notes-input" rows="2" placeholder="Optional: add guidance for the AI (tone tweaks, facts to stress, etc.)"></textarea>
+                </div>
 
-            <div class="actions card">
-              <button id="run-draft-btn" class="primary" disabled>Run AI draft</button>
-              <button id="redo-story-btn" class="danger" disabled>Redo entire story</button>
-              <button id="redo-image-btn" class="warning" disabled>Redo cartoon only</button>
-              <button id="approve-btn" class="success" disabled>Approve &amp; post to Bluesky</button>
-            </div>
-
-            <div class="results card">
-              <div class="results-text">
-                <h3>AI output</h3>
-                <p id="result-summary" class="article-summary muted">Run the AI draft to see the summary here.</p>
-                <p id="result-hashtags" class="hashtags muted"></p>
+                <div class="actions card">
+                  <button id="approve-btn" class="success" disabled>Approve &amp; post to Bluesky</button>
+                  <div class="secondary-actions">
+                    <button id="redo-story-btn" class="danger" disabled>Redo entire story</button>
+                    <button id="redo-image-btn" class="warning" disabled>Redo cartoon only</button>
+                  </div>
+                </div>
               </div>
-              <div class="results-image">
-                <img id="result-image" alt="Cartoon preview" />
+
+              <div class="side-column">
+                <div class="job-log card">
+                  <header>
+                    <h3>Activity Log</h3>
+                    <button id="clear-log-btn" class="ghost-small" type="button">Clear</button>
+                  </header>
+                  <ul id="job-log-list"></ul>
+                </div>
               </div>
             </div>
-
-            <div class="job-log card">
-              <header>
-                <h3>Job timeline</h3>
-                <button id="clear-log-btn" class="ghost" type="button">Clear log</button>
-              </header>
-              <ul id="job-log-list"></ul>
-            </div>
-          </section>
+          </div>
         </div>
       </section>
     </main>
