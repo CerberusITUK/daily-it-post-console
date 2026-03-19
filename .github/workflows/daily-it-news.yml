@@ -539,13 +539,16 @@ jobs:
           } >> $GITHUB_ENV
 
           python3 - << 'EOF'
-          import os, json, re, urllib.parse
+          import os
+          import json
+          import re
+          import urllib.parse
+          import ast
 
           resp = os.environ.get("AI_RESPONSE", "")
           article_link = os.environ.get("ARTICLE_LINK", "https://www.theregister.com/")
           article_date = os.environ.get("ARTICLE_DATE", "")
 
-          # Determine Source Name
           def hostname_to_name(url: str) -> str:
               try:
                   host = urllib.parse.urlparse(url).hostname or ""
@@ -577,42 +580,68 @@ jobs:
               if derived:
                   source_name = derived
 
+          def extract_candidates(text: str):
+              candidates = []
+              fence = re.search(r"```(?:json)?(.*?)```", text, re.DOTALL | re.IGNORECASE)
+              if fence:
+                  candidates.append(fence.group(1))
+              brace = re.search(r"\{.*\}", text, re.DOTALL)
+              if brace:
+                  candidates.append(brace.group(0))
+              if not candidates:
+                  candidates.append(text)
+              return [c.strip() for c in candidates if c]
+
+          def parse_json_payload(text: str):
+              for candidate in extract_candidates(text):
+                  try:
+                      return json.loads(candidate)
+                  except json.JSONDecodeError:
+                      pass
+                  try:
+                      return ast.literal_eval(candidate)
+                  except Exception:
+                      cleaned = candidate.replace("'", '"')
+                      try:
+                          return json.loads(cleaned)
+                      except json.JSONDecodeError:
+                          continue
+              return None
+
           try:
-              content = json.loads(resp)["choices"][0]["message"]["content"]
-              match = re.search(r'\{.*\}', content, re.DOTALL)
-              if match:
-                  data = json.loads(match.group(0))
-                  title = data.get("title", "").strip()
-                  summary = data.get("summary", "").strip()
-                  hashtags = " ".join(data.get("hashtags", []))
-                  
-                  if title and summary:
-                      final_summary = f"{title}. {summary}"
-                  elif title:
-                      final_summary = title
-                  else:
-                      final_summary = summary
-                      
-                  # Clean newlines
-                  final_summary = " ".join(final_summary.split())
-                  hashtags = " ".join(hashtags.split())
+              ai_payload = json.loads(resp)
+              content = ai_payload["choices"][0]["message"]["content"]
+              data = parse_json_payload(content) or {}
+              title = str(data.get("title", "")).strip()
+              summary = str(data.get("summary", "")).strip()
+              hashtags_value = data.get("hashtags", [])
+              if isinstance(hashtags_value, str):
+                  hashtags_list = [hashtags_value]
               else:
-                  # Fallback if AI didn't return valid JSON structure at all
-                  final_summary = " ".join(content.split())
-                  hashtags = "#IT #News"
-          except Exception as e:
+                  hashtags_list = list(hashtags_value)
+
+              if title and summary:
+                  final_summary = f"{title}. {summary}"
+              elif title:
+                  final_summary = title
+              else:
+                  final_summary = summary or content
+
+              final_summary = " ".join(final_summary.split())
+              hashtags = " ".join(tag.strip() for tag in hashtags_list if tag and tag.strip()) or "#IT #News"
+          except Exception:
               final_summary = "Failed to parse AI summary."
               hashtags = "#IT #News"
 
-          with open(os.environ['GITHUB_ENV'], 'a') as env:
-              env.write(f"SUMMARY_TEXT={final_summary}\n")
-              env.write(f"CURRENT_SUMMARY={final_summary}\n")
-              env.write(f"HASHTAGS_TEXT={hashtags}\n")
-              env.write(f"SOURCE_NAME={source_name}\n")
-              env.write(f"SOURCE_LINE=Source: {source_name}\n")
-              env.write(f"ARTICLE_LINK={article_link}\n")
-              env.write(f"DATE_LINE=Date: {article_date}\n")
-          EOF
+          with open(os.environ['GITHUB_ENV'], 'a', encoding='utf-8') as env_file:
+              env_file.write(f"SUMMARY_TEXT={final_summary}\n")
+              env_file.write(f"CURRENT_SUMMARY={final_summary}\n")
+              env_file.write(f"HASHTAGS_TEXT={hashtags}\n")
+              env_file.write(f"SOURCE_NAME={source_name}\n")
+              env_file.write(f"SOURCE_LINE=Source: {source_name}\n")
+              env_file.write(f"ARTICLE_LINK={article_link}\n")
+              env_file.write(f"DATE_LINE=Date: {article_date}\n")
+EOF
 
       - name: Use Existing Summary for Redo Image
         if: steps.vars.outputs.action == 'redo_image'
