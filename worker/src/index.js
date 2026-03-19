@@ -327,9 +327,9 @@ async function readConsoleArtifact(env, runId, jobId) {
 }
 
 async function readImageRepoResult(env, jobId) {
-  const token = env.IMAGE_REPO_PAT;
+  const token = env.IMAGE_REPO_PAT || env.GITHUB_TOKEN;
   if (!token) {
-    console.warn('IMAGE_REPO_PAT missing; cannot fetch result payload');
+    console.warn('No GitHub token available; cannot fetch result payload');
     return null;
   }
 
