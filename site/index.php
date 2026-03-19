@@ -6,11 +6,32 @@ $cache_file = __DIR__ . '/posts_cache.json';
 $cache_time = 300; // Cache duration in seconds (5 minutes)
 $max_posts  = 9;
 
+// Optional token support: either define GITHUB_CONTENT_TOKEN in config.php or set env var
+$github_token = getenv('GITHUB_CONTENT_TOKEN') ?: (defined('GITHUB_CONTENT_TOKEN') ? GITHUB_CONTENT_TOKEN : null);
+
+// Assuming this index.php runs in /public_html/it-blog/
+// We look two levels up for config.php outside public_html
+$config_path = dirname(__DIR__, 2) . '/config.php';
+
+if (!$github_token && file_exists($config_path)) {
+    require_once $config_path;
+    if (defined('GITHUB_CONTENT_TOKEN')) {
+        $github_token = GITHUB_CONTENT_TOKEN;
+    }
+}
+
 function fetch_github_json($url) {
+    global $github_token;
+
+    $headers = "User-Agent: CerberusIT-Blog-Script\r\nAccept: application/vnd.github+json\r\n";
+    if ($github_token) {
+        $headers .= "Authorization: Bearer {$github_token}\r\n";
+    }
+
     $options = [
         "http" => [
             "method" => "GET",
-            "header" => "User-Agent: CerberusIT-Blog-Script\r\nAccept: application/vnd.github+json\r\n"
+            "header" => $headers
         ]
     ];
     $context = stream_context_create($options);
