@@ -641,7 +641,7 @@ jobs:
               env_file.write(f"SOURCE_LINE=Source: {source_name}\n")
               env_file.write(f"ARTICLE_LINK={article_link}\n")
               env_file.write(f"DATE_LINE=Date: {article_date}\n")
-EOF
+          EOF
 
       - name: Use Existing Summary for Redo Image
         if: steps.vars.outputs.action == 'redo_image'
