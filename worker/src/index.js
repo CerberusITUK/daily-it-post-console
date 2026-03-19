@@ -92,12 +92,14 @@ async function handleArticles(env, url) {
     return jsonResponse(env, { error: 'Invalid offset' }, 400);
   }
 
-  const limit = Math.min(limitParam > 0 ? limitParam : 10, 15);
+  const limit = Math.min(limitParam > 0 ? limitParam : 20, 50);
   const offset = Math.max(0, Number.isFinite(offsetParam) ? offsetParam : 0);
+
   const requestedCount = Math.max(limit + offset, limit);
-  const cappedRequested = Math.min(requestedCount, 50);
+  const cappedRequested = Math.min(requestedCount, 150);
 
   const { articles, totalAvailable } = await collectArticles(cappedRequested);
+
   const pagedArticles = articles.slice(offset, offset + limit);
   const hasMore = totalAvailable > offset + pagedArticles.length;
 
