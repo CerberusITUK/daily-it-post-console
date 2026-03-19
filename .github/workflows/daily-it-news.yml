@@ -102,16 +102,14 @@ jobs:
       - name: Export UI Inputs
         run: |
           {
-            echo 'PROMPT_NOTES<<EOF'
-            echo "${{ steps.vars.outputs.prompt_notes }}"
-            echo 'EOF'
-          } >> $GITHUB_ENV
-          echo "CLIENT_JOB_ID=${{ steps.vars.outputs.client_job_id }}" >> $GITHUB_ENV
-          {
-            echo 'ARTICLE_PAYLOAD<<EOF'
-            echo "${{ steps.vars.outputs.article_payload }}"
-            echo 'EOF'
-          } >> $GITHUB_ENV
+            printf "CLIENT_JOB_ID=%s\n" "${{ steps.vars.outputs.client_job_id }}"
+            printf "PROMPT_NOTES<<'EOPN'\n"
+            printf "%s\n" "${{ steps.vars.outputs.prompt_notes }}"
+            printf "EOPN\n"
+            printf "ARTICLE_PAYLOAD<<'EOAP'\n"
+            printf "%s\n" "${{ steps.vars.outputs.article_payload }}"
+            printf "EOAP\n"
+          } >> "$GITHUB_ENV"
 
       - name: Install dependencies
         if: always()
