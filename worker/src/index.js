@@ -191,6 +191,12 @@ async function getJobStatus(env, jobId) {
     logs.push(`Image: ${output.image}`);
   }
 
+  const runJobs = await fetchRunJobs(env, run.id);
+  const blueskyMessage = summarizeBlueskyStep(runJobs);
+  if (blueskyMessage) {
+    logs.push(blueskyMessage);
+  }
+
   return jsonResponse(env, {
     status,
     conclusion: run.conclusion,
@@ -296,6 +302,36 @@ async function findRunByClientJobId(env, jobId) {
     const name = run.name || '';
     return title.includes(jobId) || name.includes(jobId);
   }) || null;
+}
+
+async function fetchRunJobs(env, runId) {
+  const res = await githubFetch(env, `/repos/${env.GITHUB_OWNER}/${env.GITHUB_REPO}/actions/runs/${runId}/jobs?per_page=50`);
+  if (!res.ok) {
+    console.error('Failed to list jobs for run', runId, res.status, await res.text());
+    return [];
+  }
+  const json = await res.json();
+  return Array.isArray(json.jobs) ? json.jobs : [];
+}
+
+function summarizeBlueskyStep(jobs) {
+  for (const job of jobs) {
+    const step = job.steps?.find((s) => typeof s.name === 'string' && s.name.toLowerCase().includes('bluesky'));
+    if (!step) continue;
+    if (step.status === 'completed') {
+      if (step.conclusion === 'success') return 'Bluesky post succeeded';
+      if (step.conclusion === 'failure') return 'Bluesky post failed';
+      if (step.conclusion === 'skipped') return 'Bluesky post skipped';
+      return `Bluesky post completed (${step.conclusion || 'unknown'})`;
+    }
+    if (step.status === 'in_progress') {
+      return 'Bluesky post running…';
+    }
+    if (step.status === 'queued') {
+      return 'Bluesky post queued…';
+    }
+  }
+  return null;
 }
 
 async function readConsoleArtifact(env, runId, jobId) {
