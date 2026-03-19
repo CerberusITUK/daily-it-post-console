@@ -1,0 +1,115 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Daily IT News Console</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <main class="app-shell">
+      <section id="auth-panel" class="panel auth-panel">
+        <div>
+          <h1>Daily IT News Console</h1>
+          <p class="lede">Sign in to orchestrate the RSS → AI → Bluesky flow.</p>
+        </div>
+        <form id="login-form" class="card">
+          <label>
+            Username
+            <input id="login-username" type="text" autocomplete="username" required />
+          </label>
+          <label>
+            Passphrase
+            <input id="login-password" type="password" autocomplete="current-password" required />
+          </label>
+          <button type="submit" class="primary">Log in</button>
+          <p id="login-error" class="form-error" role="alert"></p>
+        </form>
+      </section>
+
+      <section id="app-panel" class="panel app-panel hidden" aria-live="polite">
+        <header class="app-header">
+          <div>
+            <h2>Editorial Workbench</h2>
+            <p class="lede">Pull the latest feeds, craft the AI brief, and publish when ready.</p>
+          </div>
+          <div class="session-meta">
+            <span id="session-indicator" class="pill">Signed in</span>
+            <button id="logout-btn" class="ghost">Log out</button>
+          </div>
+        </header>
+
+        <div class="controls">
+          <button id="fetch-articles-btn" class="primary">Fetch 10 fresh articles</button>
+          <span id="job-status-pill" class="pill muted">Idle</span>
+        </div>
+
+        <div class="workspace">
+          <aside class="articles-list" aria-label="Candidate articles">
+            <header>
+              <h3>Feed picks</h3>
+              <p class="muted">Newest 24h · weighted to UK/EU common-man stories.</p>
+            </header>
+            <ul id="articles-container"></ul>
+            <p id="articles-empty" class="muted">Press "Fetch 10 fresh articles" to populate this list.</p>
+          </aside>
+
+          <section class="detail-panel">
+            <div class="selected-article card">
+              <header>
+                <h3 id="article-title">No article selected</h3>
+                <p id="article-meta" class="muted">Pick a story from the left to begin.</p>
+              </header>
+              <p id="article-summary" class="article-summary"></p>
+              <a id="article-link" href="#" target="_blank" rel="noopener" class="muted external-link" aria-disabled="true">Open source article</a>
+            </div>
+
+            <div class="prompt-notes card">
+              <label for="prompt-notes-input">Prompt add-ons</label>
+              <textarea id="prompt-notes-input" rows="3" placeholder="Optional: add guidance for the AI (tone tweaks, facts to stress, etc.)"></textarea>
+              <p class="muted">This text is appended to the existing cynical BOFH prompt.</p>
+            </div>
+
+            <div class="actions card">
+              <button id="run-draft-btn" class="primary" disabled>Run AI draft</button>
+              <button id="redo-story-btn" class="danger" disabled>Redo entire story</button>
+              <button id="redo-image-btn" class="warning" disabled>Redo cartoon only</button>
+              <button id="approve-btn" class="success" disabled>Approve &amp; post to Bluesky</button>
+            </div>
+
+            <div class="results card">
+              <div class="results-text">
+                <h3>AI output</h3>
+                <p id="result-summary" class="article-summary muted">Run the AI draft to see the summary here.</p>
+                <p id="result-hashtags" class="hashtags muted"></p>
+              </div>
+              <div class="results-image">
+                <img id="result-image" alt="Cartoon preview" />
+              </div>
+            </div>
+
+            <div class="job-log card">
+              <header>
+                <h3>Job timeline</h3>
+                <button id="clear-log-btn" class="ghost" type="button">Clear log</button>
+              </header>
+              <ul id="job-log-list"></ul>
+            </div>
+          </section>
+        </div>
+      </section>
+    </main>
+
+    <template id="article-item-template">
+      <li>
+        <button class="article-item">
+          <span class="article-title"></span>
+          <span class="article-source"></span>
+          <span class="article-date"></span>
+        </button>
+      </li>
+    </template>
+
+    <script type="module" src="app.js"></script>
+  </body>
+</html>

@@ -10,3 +10,4 @@ tmp/
 __pycache__/
 worker/.wrangler/
 *.old
+web-console/config.js

@@ -1,4 +1,5 @@
 name: Daily IT News
+run-name: Daily IT – ${{ github.event.inputs.client_job_id || github.run_number }}
 
 on:
   schedule:
@@ -7,6 +8,11 @@ on:
     inputs:
       action:
         description: "Action from approval email"
+        required: false
+        default: ""
+        type: string
+      client_job_id:
+        description: "External job identifier (UI)"
         required: false
         default: ""
         type: string
@@ -40,12 +46,26 @@ on:
         required: false
         default: "Source"
         type: string
+      prompt_notes:
+        description: "Additional instructions appended to AI prompt"
+        required: false
+        default: ""
+        type: string
+      article_payload:
+        description: "JSON blob describing a pre-selected article"
+        required: false
+        default: ""
+        type: string
 
 jobs:
   post-news:
     runs-on: ubuntu-latest
     permissions:
       contents: write
+    env:
+      ARTICLE_PAYLOAD: ""
+      PROMPT_NOTES: ""
+      CLIENT_JOB_ID: ""
     steps:
       - uses: actions/checkout@v4
 
@@ -53,6 +73,7 @@ jobs:
         id: vars
         run: |
           echo "action=${{ github.event.inputs.action || '' }}" >> $GITHUB_OUTPUT
+          echo "client_job_id=${{ github.event.inputs.client_job_id || '' }}" >> $GITHUB_OUTPUT
           cat << 'EOF' >> $GITHUB_OUTPUT
           summary=${{ github.event.inputs.summary || '' }}
           EOF
@@ -71,6 +92,26 @@ jobs:
           cat << 'EOF' >> $GITHUB_OUTPUT
           source_name=${{ github.event.inputs.source_name || '' }}
           EOF
+          cat << 'EOF' >> $GITHUB_OUTPUT
+          prompt_notes=${{ github.event.inputs.prompt_notes || '' }}
+          EOF
+          cat << 'EOF' >> $GITHUB_OUTPUT
+          article_payload=${{ github.event.inputs.article_payload || '' }}
+          EOF
+
+      - name: Export UI Inputs
+        run: |
+          {
+            echo 'PROMPT_NOTES<<EOF'
+            echo "${{ steps.vars.outputs.prompt_notes }}"
+            echo 'EOF'
+          } >> $GITHUB_ENV
+          echo "CLIENT_JOB_ID=${{ steps.vars.outputs.client_job_id }}" >> $GITHUB_ENV
+          {
+            echo 'ARTICLE_PAYLOAD<<EOF'
+            echo "${{ steps.vars.outputs.article_payload }}"
+            echo 'EOF'
+          } >> $GITHUB_ENV
 
       - name: Install dependencies
         if: always()
@@ -255,8 +296,36 @@ jobs:
               print('Failed to send Bluesky failure email:', email_error)
           EOF
 
+      - name: Load Provided Article
+        if: steps.vars.outputs.article_payload != ''
+        env:
+          ARTICLE_PAYLOAD_JSON: ${{ env.ARTICLE_PAYLOAD }}
+        run: |
+          python3 - << 'EOF'
+          import json, os
+
+          raw = os.environ.get('ARTICLE_PAYLOAD_JSON')
+          try:
+              data = json.loads(raw)
+          except Exception as exc:
+              raise SystemExit(f"Invalid article payload: {exc}")
+
+          summary = data.get('summary') or ''
+          link = data.get('link') or ''
+          date = data.get('date') or ''
+          source = data.get('source_name') or 'Source'
+
+          env_file = os.environ['GITHUB_ENV']
+          with open(env_file, 'a') as fh:
+              fh.write(f"ARTICLE_SUMMARY={summary}\n")
+              fh.write(f"ARTICLE_LINK={link}\n")
+              fh.write(f"ARTICLE_DATE={date}\n")
+              fh.write(f"SOURCE_NAME={source}\n")
+              fh.write(f"SOURCE_LINE=Source: {source}\n")
+          EOF
+
       - name: Fetch RSS
-        if: steps.vars.outputs.action != 'approve' && steps.vars.outputs.action != 'redo_image'
+        if: steps.vars.outputs.action != 'approve' && steps.vars.outputs.action != 'redo_image' && steps.vars.outputs.article_payload == ''
         env:
           ACTION_MODE: ${{ steps.vars.outputs.action }}
           PREVIOUS_LINK: ${{ steps.vars.outputs.link }}
@@ -438,7 +507,12 @@ jobs:
         run: |
           #!/bin/bash
           # Use simple assignment to avoid Bash-only printf issues
-          PROMPT_TEXT="You are a deeply cynical, highly sarcastic IT engineer. Read this news: $ARTICLE_SUMMARY. STRICT FORMAT REQUIREMENT: Your summary must be exactly 3 sentences long. Sentences 1 and 2 must sarcastically describe the core news in plain English that a non-technical person understands (e.g. 'the internet broke because someone tripped over a wire' instead of 'BGP routes dropped'). Sentence 3 must be a standalone, biting, hilarious punchline about the situation. Also provide a witty title and sarcastic hashtags. Negative prompt: no offensive stereotypes, no derogatory terms, no caricatured ethnicity, never use slurs or nicknames like 'Nork' or anything similar. CRITICAL: The total combined length of the title and summary MUST be under 200 characters to leave room for the link. Make it punchy. Output ONLY valid JSON in this exact format: {\"title\": \"<text>\", \"summary\": \"<text>\", \"hashtags\": [\"#tag1\",\"#tag2\"]}."
+          PROMPT_NOTES_SAFE=$(echo "$PROMPT_NOTES" | tr '\n' ' ')
+          PROMPT_APPEND=""
+          if [ -n "$PROMPT_NOTES_SAFE" ]; then
+            PROMPT_APPEND=" Additional operator notes: $PROMPT_NOTES_SAFE"
+          fi
+          PROMPT_TEXT="You are a deeply cynical, highly sarcastic IT engineer. Read this news: $ARTICLE_SUMMARY. STRICT FORMAT REQUIREMENT: Your summary must be exactly 3 sentences long. Sentences 1 and 2 must sarcastically describe the core news in plain English that a non-technical person understands (e.g. 'the internet broke because someone tripped over a wire' instead of 'BGP routes dropped'). Sentence 3 must be a standalone, biting, hilarious punchline about the situation. Also provide a witty title and sarcastic hashtags. Negative prompt: no offensive stereotypes, no derogatory terms, no caricatured ethnicity, never use slurs or nicknames like 'Nork' or anything similar. CRITICAL: The total combined length of the title and summary MUST be under 200 characters to leave room for the link. Make it punchy. Output ONLY valid JSON in this exact format: {\"title\": \"<text>\", \"summary\": \"<text>\", \"hashtags\": [\"#tag1\",\"#tag2\"]}."$PROMPT_APPEND
 
           PAYLOAD=$(jq -n --arg msg "$PROMPT_TEXT" '{model: "nousresearch/hermes-3-llama-3.1-405b", messages: [{role: "user", content: $msg}], max_tokens:250}')
 
@@ -662,6 +736,75 @@ jobs:
 
           if [ -z "$CURRENT_IMAGE" ]; then
             echo "ERROR: Image upload failed, aborting run."
+            exit 1
+          fi
+
+      - name: Publish Console Result JSON
+        if: steps.vars.outputs.action != 'approve'
+        env:
+          IMAGE_REPO_PAT: ${{ secrets.IMAGE_REPO_PAT }}
+          IMAGE_REPO: CerberusITUK/daily-post-images
+          IMAGE_BRANCH: main
+        run: |
+          if [ -z "$CLIENT_JOB_ID" ]; then
+            echo "CLIENT_JOB_ID not provided; skipping result publish"
+            exit 0
+          fi
+
+          if [ -z "$CURRENT_SUMMARY" ] || [ -z "$CURRENT_IMAGE" ]; then
+            echo "Missing summary or image; cannot publish result"
+            exit 1
+          fi
+
+          python3 - <<'EOF'
+          import json, os
+
+          def split_hashtags(text: str):
+              return [tag for tag in text.split() if tag]
+
+          payload = {
+              "job_id": os.environ.get("CLIENT_JOB_ID", ""),
+              "summary": os.environ.get("CURRENT_SUMMARY", ""),
+              "hashtags": split_hashtags(os.environ.get("HASHTAGS_TEXT", "")),
+              "image": os.environ.get("CURRENT_IMAGE", ""),
+              "article_link": os.environ.get("ARTICLE_LINK", ""),
+              "article_date": os.environ.get("ARTICLE_DATE", ""),
+              "source_name": os.environ.get("SOURCE_NAME", "Source"),
+              "prompt_notes": os.environ.get("PROMPT_NOTES", ""),
+              "ai_prompt": os.environ.get("AI_PROMPT_TEXT", ""),
+              "article_context": os.environ.get("ARTICLE_SUMMARY", ""),
+          }
+
+          with open('console-result.json', 'w', encoding='utf-8') as fh:
+              json.dump(payload, fh, ensure_ascii=False)
+          EOF
+
+          if [ -z "$IMAGE_REPO_PAT" ]; then
+            echo "IMAGE_REPO_PAT secret missing; cannot publish result"
+            exit 1
+          fi
+
+          RESULT_PATH="results/$CLIENT_JOB_ID.json"
+          TMP_B64=$(mktemp)
+          if base64 -w 0 console-result.json > "$TMP_B64" 2>/dev/null; then
+            :
+          else
+            base64 console-result.json | tr -d '\n' > "$TMP_B64"
+          fi
+          B64_CONTENT=$(cat "$TMP_B64")
+          rm -f "$TMP_B64"
+          jq -n --arg message "Add console result $CLIENT_JOB_ID" --arg branch "${IMAGE_BRANCH:-main}" --arg content "$B64_CONTENT" '{message:$message,content:$content,branch:$branch}' > payload.json
+
+          API_URL="https://api.github.com/repos/$IMAGE_REPO/contents/$RESULT_PATH"
+          RESPONSE=$(curl -sS -X PUT "$API_URL" \
+            -H "Authorization: Bearer $IMAGE_REPO_PAT" \
+            -H "Accept: application/vnd.github+json" \
+            -H "Content-Type: application/json" \
+            -d @payload.json)
+
+          echo "Result publish response: $RESPONSE"
+          if ! echo "$RESPONSE" | jq -e '.content.download_url' >/dev/null; then
+            echo "Failed to publish console result JSON"
             exit 1
           fi
 
