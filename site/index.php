@@ -193,8 +193,7 @@ function trim_summary($text) {
               posts. Pick a story, let the AI riff, and ship it to Bluesky or your execs.
             </p>
             <div class="hero-cta">
-              <a class="btn primary" href="https://dailyitconsole.netlify.app" target="_blank" rel="noopener">Launch Console</a>
-              <a class="btn ghost" href="#recent-posts">Browse latest</a>
+              <a class="btn primary" href="#recent-posts">Browse latest</a>
             </div>
             <ul class="hero-points">
               <li>⚡ Fresh AI draft every weekday</li>
@@ -217,8 +216,7 @@ function trim_summary($text) {
                   <a href="<?= escape($featured['link']) ?>" class="btn secondary" target="_blank" rel="noopener">Read source article</a>
               <?php else: ?>
                   <h2>No drafts yet</h2>
-                  <p>Run the Daily IT console to generate your first story.</p>
-                  <a href="https://dailyitconsole.netlify.app" class="btn secondary" target="_blank" rel="noopener">Launch console</a>
+                  <p>The gremlins are currently assembling the first outage report. Check back soon.</p>
               <?php endif; ?>
             </div>
           </div>
