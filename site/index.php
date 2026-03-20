@@ -187,17 +187,16 @@ function trim_summary($text) {
         <div class="shell hero-grid">
           <div class="hero-copy">
             <p class="eyebrow">Daily outage intel</p>
-            <h1>Outage gossip, breach autopsies, and sarcastic IT truth.</h1>
+            <h1>Our slightly sarcastic view of the IT world.</h1>
             <p>
-              We translate gnarly incident reports into sharp takes, human-friendly summaries, and ready-to-share
-              posts. Pick a story, let the AI riff, and ship it to Bluesky or your execs.
+              We translate gnarly incident reports into sharp takes and human-friendly summaries. A daily dose of outage gossip, breach autopsies, and the harsh realities of enterprise IT.
             </p>
             <div class="hero-cta">
-              <a class="btn primary" href="#recent-posts">Browse latest</a>
+              <a class="btn primary" href="#recent-posts">Read the latest</a>
             </div>
             <ul class="hero-points">
-              <li>⚡ Fresh AI draft every weekday</li>
-              <li>🌀 Bluesky-ready copy &amp; images</li>
+              <li>⚡ Fresh outages every weekday</li>
+              <li>🌀 Bite-sized insights</li>
               <li>🧩 Balanced EU/UK/US feed</li>
             </ul>
           </div>
@@ -231,7 +230,7 @@ function trim_summary($text) {
           </article>
           <article>
             <p class="metric-value"><?= number_format($sarcasm_count) ?></p>
-            <p class="metric-label">AI zingers delivered</p>
+            <p class="metric-label">Zingers delivered</p>
           </article>
           <article>
             <p class="metric-value"><?= count($posts) ?></p>
@@ -254,8 +253,14 @@ function trim_summary($text) {
             <?php if (empty($posts)): ?>
                 <div class="placeholder-card">No stories available yet.</div>
             <?php else: ?>
-                <?php foreach ($posts as $post): ?>
-                <article class="post-card">
+                <?php 
+                // We'll map different grid classes to give the comic panel feel
+                $comic_classes = ['panel-wide', 'panel-tall', 'panel-small', 'panel-small', 'panel-wide', 'panel-square', 'panel-burst', 'panel-small', 'panel-tall'];
+                $i = 0;
+                foreach ($posts as $post): 
+                    $panel_class = $comic_classes[$i % count($comic_classes)];
+                ?>
+                <article class="post-card <?= $panel_class ?>">
                     <?php if (!empty($post['image'])): ?>
                         <img src="<?= escape($post['image']) ?>" alt="Post image" class="post-image" loading="lazy" />
                     <?php endif; ?>
@@ -269,7 +274,10 @@ function trim_summary($text) {
                     </div>
                     <a href="<?= escape($post['link']) ?>" target="_blank" rel="noopener" class="btn ghost" style="margin-top: auto;">Open article</a>
                 </article>
-                <?php endforeach; ?>
+                <?php 
+                $i++;
+                endforeach; 
+                ?>
             <?php endif; ?>
           </div>
         </div>

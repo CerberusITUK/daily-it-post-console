@@ -1,15 +1,17 @@
 :root {
-  --bg: #05060a;
-  --card: #10121a;
-  --card-alt: #141724;
-  --accent: #ff5f1f;
-  --accent-soft: rgba(255, 95, 31, 0.15);
-  --text: #f5f7ff;
-  --muted: #9aa0ba;
-  --line: rgba(255, 255, 255, 0.08);
-  --gradient: linear-gradient(120deg, #ff5f1f, #f538ff);
+  --bg: #f9f9f9;
+  --card: #ffffff;
+  --card-alt: #f0f0f0;
+  --accent: #ff4500;
+  --accent-soft: rgba(255, 69, 0, 0.1);
+  --text: #1a1a1a;
+  --muted: #666666;
+  --line: #000000;
+  --gradient: linear-gradient(120deg, #ff4500, #ff8c00);
   --shell: clamp(16px, 5vw, 80px);
   --font: 'Space Grotesk', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --shadow: 6px 6px 0px #000000;
+  --shadow-hover: 2px 2px 0px #000000;
 }
 
 *,
@@ -53,41 +55,42 @@ a:hover {
   justify-content: center;
   gap: 0.4rem;
   padding: 0.85rem 1.5rem;
-  border-radius: 999px;
-  border: 1px solid transparent;
-  font-weight: 600;
+  border-radius: 8px;
+  border: 2px solid var(--line);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
   cursor: pointer;
-  transition: transform 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
+  transition: all 0.2s ease;
+  box-shadow: 4px 4px 0px var(--line);
 }
 
 .btn.primary {
-  background: var(--gradient);
-  color: #05060a;
-  box-shadow: 0 15px 35px rgba(255, 95, 31, 0.25);
+  background: var(--accent);
+  color: #fff;
 }
 
 .btn.secondary {
   background: #fff;
-  color: #05060a;
+  color: var(--text);
 }
 
 .btn.ghost {
-  border-color: var(--line);
   background: transparent;
   color: var(--text);
 }
 
 .btn:hover {
-  transform: translateY(-2px);
+  transform: translate(2px, 2px);
+  box-shadow: 2px 2px 0px var(--line);
 }
 
 .site-header {
-  border-bottom: 1px solid var(--line);
-  backdrop-filter: blur(12px);
+  border-bottom: 3px solid var(--line);
+  background: var(--bg);
   position: sticky;
   top: 0;
   z-index: 10;
-  background: rgba(5, 6, 10, 0.8);
 }
 
 .site-header .shell {
@@ -107,13 +110,15 @@ a:hover {
 .logo-sigil {
   width: 44px;
   height: 44px;
-  border-radius: 12px;
-  background: var(--gradient);
-  color: #05060a;
-  font-weight: 700;
+  border-radius: 8px;
+  border: 2px solid var(--line);
+  background: var(--accent);
+  color: #fff;
+  font-weight: 800;
   display: grid;
   place-items: center;
-  font-size: 1.1rem;
+  font-size: 1.2rem;
+  box-shadow: 3px 3px 0px var(--line);
 }
 
 .brand-title {
@@ -130,17 +135,20 @@ a:hover {
 
 .primary-nav a {
   padding: 0.35rem 0.75rem;
-  border-radius: 999px;
-  transition: background 0.2s ease;
+  border-radius: 6px;
+  border: 2px solid transparent;
+  font-weight: 600;
+  transition: all 0.2s ease;
 }
 
 .primary-nav a:hover {
-  background: rgba(255, 255, 255, 0.08);
+  border-color: var(--line);
+  background: var(--card-alt);
 }
 
 .hero {
   padding: 4rem 0 2rem;
-  background: radial-gradient(circle at top left, rgba(255, 95, 31, 0.35), transparent 45%);
+  background: url('data:image/svg+xml;utf8,<svg width="20" height="20" xmlns="http://www.w3.org/2000/svg"><circle cx="2" cy="2" r="1.5" fill="%23000000" fill-opacity="0.05"/></svg>');
 }
 
 .hero-grid {
@@ -154,6 +162,8 @@ a:hover {
   font-size: clamp(2.5rem, 4vw, 3.6rem);
   line-height: 1.1;
   margin: 0.5rem 0 1rem;
+  font-weight: 800;
+  text-transform: uppercase;
 }
 
 .hero-copy p {
@@ -184,19 +194,19 @@ a:hover {
 
 .highlight-card {
   background: var(--card);
-  border-radius: 20px;
+  border-radius: 12px;
   padding: 2rem;
-  border: 1px solid var(--line);
-  box-shadow: 0 30px 60px rgba(0, 0, 0, 0.45);
+  border: 3px solid var(--line);
+  box-shadow: var(--shadow);
 }
 
 .post-image {
   width: 100%;
   height: 200px;
   object-fit: cover;
-  border-radius: 12px;
+  border-radius: 6px;
   margin-bottom: 0.5rem;
-  border: 1px solid var(--line);
+  border: 2px solid var(--line);
 }
 
 .featured-image {
@@ -227,9 +237,11 @@ a:hover {
 
 .metric-grid article {
   background: var(--card);
-  border-radius: 16px;
+  border-radius: 12px;
   padding: 1.5rem;
-  border: 1px solid var(--line);
+  border: 3px solid var(--line);
+  box-shadow: 4px 4px 0px var(--line);
+  text-align: center;
 }
 
 .metric-value {
@@ -258,25 +270,68 @@ a:hover {
 
 .posts-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  grid-auto-flow: dense;
   gap: 1.5rem;
+}
+
+@media (min-width: 900px) {
+  .posts-grid {
+    grid-template-columns: repeat(4, 1fr);
+  }
+  
+  .panel-wide {
+    grid-column: span 2;
+  }
+  
+  .panel-tall {
+    grid-row: span 2;
+  }
+  
+  .panel-tall .post-image {
+    height: 350px;
+  }
+  
+  .panel-burst {
+    clip-path: polygon(0% 15%, 15% 15%, 15% 0%, 85% 0%, 85% 15%, 100% 15%, 100% 85%, 85% 85%, 85% 100%, 15% 100%, 15% 85%, 0% 85%);
+    border: none;
+    background: var(--accent);
+    color: #fff;
+  }
+  
+  .panel-burst h3, .panel-burst p, .panel-burst .post-meta {
+    color: #fff;
+  }
+  
+  .panel-burst .btn.ghost {
+    background: #fff;
+    color: #000;
+  }
 }
 
 .post-card {
   background: var(--card);
-  border-radius: 18px;
+  border-radius: 12px;
   padding: 1.5rem;
-  border: 1px solid var(--line);
+  border: 3px solid var(--line);
+  box-shadow: var(--shadow);
   display: flex;
   flex-direction: column;
   gap: 0.75rem;
   position: relative;
   min-height: 270px;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.post-card:hover {
+  transform: translate(-2px, -2px);
+  box-shadow: 8px 8px 0px var(--line);
 }
 
 .post-card h3 {
   margin: 0;
-  font-size: 1.2rem;
+  font-size: 1.3rem;
+  font-weight: 800;
 }
 
 .post-card p {
@@ -298,52 +353,59 @@ a:hover {
 .tag {
   font-size: 0.75rem;
   text-transform: uppercase;
+  font-weight: 700;
   letter-spacing: 0.1em;
-  padding: 0.2rem 0.9rem;
-  border-radius: 999px;
-  background: var(--accent-soft);
-  color: var(--accent);
+  padding: 0.2rem 0.6rem;
+  border: 2px solid var(--line);
+  background: var(--accent);
+  color: #fff;
+  box-shadow: 2px 2px 0px var(--line);
 }
 
 .placeholder-card {
-  border: 1px dashed var(--line);
-  border-radius: 18px;
+  border: 3px dashed var(--line);
+  border-radius: 12px;
   padding: 2rem;
   text-align: center;
   color: var(--muted);
+  font-weight: 600;
 }
 
 .newsletter {
   padding: 4rem 0;
+  background: url('data:image/svg+xml;utf8,<svg width="20" height="20" xmlns="http://www.w3.org/2000/svg"><circle cx="2" cy="2" r="1.5" fill="%23000000" fill-opacity="0.05"/></svg>');
+  background-color: #fff;
 }
 
 .newsletter-grid {
-  background: var(--card-alt);
-  border-radius: 24px;
+  background: #fff;
+  color: #000;
+  border-radius: 12px;
   padding: clamp(1.5rem, 4vw, 3rem);
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
   gap: 2rem;
-  border: 1px solid var(--line);
+  border: 3px solid #000;
+  box-shadow: 4px 4px 0px #000;
 }
 
-.newsletter-form {
-  display: flex;
-  flex-direction: column;
-  gap: 1rem;
+.newsletter-grid .eyebrow,
+.newsletter-grid p {
+  color: rgba(0, 0, 0, 0.9);
 }
 
 .newsletter-form input {
   padding: 0.9rem 1rem;
-  border-radius: 12px;
-  border: 1px solid var(--line);
-  background: rgba(255, 255, 255, 0.04);
-  color: var(--text);
+  border-radius: 8px;
+  border: 2px solid #000;
+  background: #fff;
+  color: #000;
   font-size: 1rem;
+  font-weight: 600;
 }
 
 .newsletter-form input::placeholder {
-  color: var(--muted);
+  color: #666;
 }
 
 .form-footnote {
@@ -353,8 +415,9 @@ a:hover {
 }
 
 .site-footer {
-  border-top: 1px solid var(--line);
-  padding: 2rem 0 1.5rem;
+  border-top: 3px solid var(--line);
+  padding: 3rem 0 2rem;
+  background: var(--card);
 }
 
 .footer-grid {
