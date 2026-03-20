@@ -206,6 +206,9 @@ function trim_summary($text) {
             <div class="highlight-card">
               <p class="eyebrow">Featured pull</p>
               <?php if ($featured): ?>
+                  <?php if (!empty($featured['image'])): ?>
+                      <img src="<?= escape($featured['image']) ?>" alt="Featured post image" class="post-image featured-image" loading="lazy" />
+                  <?php endif; ?>
                   <h2><?= escape($featured['title']) ?></h2>
                   <p><?= escape($featured['summary']) ?></p>
                   <div class="highlight-meta">
@@ -255,6 +258,9 @@ function trim_summary($text) {
             <?php else: ?>
                 <?php foreach ($posts as $post): ?>
                 <article class="post-card">
+                    <?php if (!empty($post['image'])): ?>
+                        <img src="<?= escape($post['image']) ?>" alt="Post image" class="post-image" loading="lazy" />
+                    <?php endif; ?>
                     <h3><?= escape($post['title']) ?></h3>
                     <p><?= escape(trim_summary($post['summary'])) ?></p>
                     <p class="post-meta"><?= escape($post['source']) ?> &bull; <?= escape($post['date']) ?></p>

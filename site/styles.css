@@ -190,6 +190,20 @@ a:hover {
   box-shadow: 0 30px 60px rgba(0, 0, 0, 0.45);
 }
 
+.post-image {
+  width: 100%;
+  height: 200px;
+  object-fit: cover;
+  border-radius: 12px;
+  margin-bottom: 0.5rem;
+  border: 1px solid var(--line);
+}
+
+.featured-image {
+  height: 300px;
+  margin-bottom: 1rem;
+}
+
 .highlight-card h2 {
   margin-top: 0.5rem;
   margin-bottom: 0.75rem;
