@@ -335,6 +335,17 @@ function renderArticles() {
     button.querySelector('.article-source').textContent = article.source_name || 'Source';
     button.querySelector('.article-date').textContent = article.date || '';
     
+    // Make title clickable if link exists
+    const titleElement = button.querySelector('.article-title');
+    if (article.link) {
+      titleElement.style.cursor = 'pointer';
+      titleElement.style.textDecoration = 'underline';
+      titleElement.addEventListener('click', (e) => {
+        e.stopPropagation();
+        window.open(article.link, '_blank');
+      });
+    }
+    
     if (state.selectedArticle === idx) button.classList.add('active');
     
     if (article.link && state.postedArticles.has(article.link)) {
