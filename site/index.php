@@ -132,10 +132,21 @@ foreach ($all_posts_raw['posts'] as $item) {
 $total_posts = count($all_posts);
 $sort_order = isset($_GET['sort']) && $_GET['sort'] === 'asc' ? 'asc' : 'desc';
 
+// Helper to convert DD/MM/YYYY to a sortable timestamp
+function parse_uk_date($date_str) {
+    if (empty($date_str)) return time();
+    // Convert DD/MM/YYYY to YYYY-MM-DD for strtotime
+    $parts = explode('/', $date_str);
+    if (count($parts) === 3) {
+        return strtotime("{$parts[2]}-{$parts[1]}-{$parts[0]}");
+    }
+    return strtotime($date_str);
+}
+
 // Sort by date
 usort($all_posts, function($a, $b) use ($sort_order) {
-    $timeA = strtotime($a['date'] ?? 'now');
-    $timeB = strtotime($b['date'] ?? 'now');
+    $timeA = parse_uk_date($a['date'] ?? '');
+    $timeB = parse_uk_date($b['date'] ?? '');
     return $sort_order === 'asc' ? $timeA - $timeB : $timeB - $timeA;
 });
 
