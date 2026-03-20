@@ -282,7 +282,7 @@ function escape($str) {
                   <h3><?= escape($featured['title']) ?></h3>
                   <p><?= escape($featured['summary']) ?></p>
                   <?php if (!empty($featured['image'])): ?>
-                    <img src="<?= escape($featured['image']) ?>" alt="Featured post image" loading="lazy" />
+                    <img src="<?= escape($featured['image']) ?>" alt="Featured post image" width="600" height="400" loading="lazy" />
                   <?php endif; ?>
                   <?php if (!empty($featured['tags'])): ?>
                     <div class="tag-row">
@@ -346,7 +346,7 @@ function escape($str) {
                     <h3><?= escape($post['title']) ?></h3>
                     <p><?= escape($post['summary']) ?></p>
                     <?php if (!empty($post['image'])): ?>
-                      <img src="<?= escape($post['image']) ?>" alt="Post image" loading="lazy" />
+                      <img src="<?= escape($post['image']) ?>" alt="Post image" width="400" height="267" loading="lazy" />
                     <?php endif; ?>
                     <?php if (!empty($post['tags'])): ?>
                       <div class="tag-row">
@@ -439,7 +439,7 @@ function escape($str) {
       <p class="footer-note">© <?= date('Y') ?> Cerberus IT. All rights reserved.</p>
     </footer>
 
-    <div id="image-modal" class="image-modal" aria-hidden="true">
+    <div id="image-modal" class="image-modal" aria-hidden="true" inert>
       <div class="image-modal__backdrop" data-close-modal></div>
       <figure class="image-modal__content">
         <button class="image-modal__close" type="button" aria-label="Close image" data-close-modal>×</button>
@@ -448,11 +448,11 @@ function escape($str) {
       </figure>
     </div>
 
-    <div id="story-modal" class="story-modal" aria-hidden="true">
+    <div id="story-modal" class="story-modal" aria-hidden="true" inert>
       <div class="story-modal__backdrop" data-close-story></div>
       <article class="story-modal__content">
         <button class="story-modal__close" type="button" aria-label="Close story" data-close-story>×</button>
-        <h3 class="story-modal__title"></h3>
+        <h2 class="story-modal__title"></h2>
         <div class="story-modal__body"></div>
         <div class="story-modal__source"></div>
       </article>
@@ -472,12 +472,14 @@ function escape($str) {
           caption.textContent = img.closest('.panel')?.querySelector('h3')?.textContent || img.alt || '';
           modal.classList.add('is-visible');
           modal.setAttribute('aria-hidden', 'false');
+          modal.removeAttribute('inert');
           document.body.style.overflow = 'hidden';
         }
 
         function closeModal() {
           modal.classList.remove('is-visible');
           modal.setAttribute('aria-hidden', 'true');
+          modal.setAttribute('inert', '');
           modalImg.src = '';
           document.body.style.overflow = '';
         }
@@ -543,12 +545,14 @@ function escape($str) {
           
           storyModal.classList.add('is-visible');
           storyModal.setAttribute('aria-hidden', 'false');
+          storyModal.removeAttribute('inert');
           document.body.style.overflow = 'hidden';
         }
 
         function closeStoryModal() {
           storyModal.classList.remove('is-visible');
           storyModal.setAttribute('aria-hidden', 'true');
+          storyModal.setAttribute('inert', '');
           storyBody.innerHTML = '';
           if (storySource) storySource.innerHTML = '';
           document.body.style.overflow = '';
