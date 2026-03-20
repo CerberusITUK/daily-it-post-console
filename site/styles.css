@@ -193,12 +193,12 @@ a:hover {
   position: relative;
 }
 
-.highlight-card {
-  background: var(--card);
-  border-radius: 12px;
-  padding: 2rem;
-  border: 3px solid var(--line);
-  box-shadow: var(--shadow);
+.hero-highlight .panel {
+  height: 100%;
+}
+
+.panel-featured {
+  width: 100%;
 }
 
 .post-image {

@@ -701,7 +701,7 @@ jobs:
                 RESULT_STR=$(echo "$STAT_RESP" | jq -r '.data.resultJson // empty')
                 IMG_URL=$(echo "$RESULT_STR" | jq -r '.resultUrls[0] // empty')
                 break
-              elif [ "$STATE" = "failed" ] || [ "$STATE" = "error" ] || [ "$STATE" = "rejected" ]; then
+              elif [ "$STATE" = "failed" ] || [ "$STATE" = "fail" ] || [ "$STATE" = "error" ] || [ "$STATE" = "rejected" ]; then
                 echo "Image generation failed with state '$STATE': $STAT_RESP"
                 break
               fi
