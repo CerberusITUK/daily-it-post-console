@@ -294,7 +294,7 @@ function escape($str) {
                     >Read the Story &rarr;</button>
                   <?php endif; ?>
                   <?php if (!empty($featured['image'])): ?>
-                    <img src="<?= escape($featured['image']) ?>" alt="Featured post image" width="600" height="400" loading="lazy" />
+                    <img src="<?= escape($featured['image']) ?>" alt="Featured post image" width="600" height="400" loading="lazy" data-link="<?= escape($featured['link']) ?>" />
                   <?php endif; ?>
                   <?php if (!empty($featured['tags'])): ?>
                     <div class="tag-row">
@@ -358,7 +358,7 @@ function escape($str) {
                       >Read the Story &rarr;</button>
                     <?php endif; ?>
                     <?php if (!empty($post['image'])): ?>
-                      <img src="<?= escape($post['image']) ?>" alt="Post image" width="400" height="267" loading="lazy" />
+                      <img src="<?= escape($post['image']) ?>" alt="Post image" width="400" height="267" loading="lazy" data-link="<?= escape($post['link']) ?>" />
                     <?php endif; ?>
                     <?php if (!empty($post['tags'])): ?>
                       <div class="tag-row">
@@ -447,6 +447,9 @@ function escape($str) {
         <button class="image-modal__close" type="button" aria-label="Close image" data-close-modal>×</button>
         <img src="" alt="Expanded post image" />
         <figcaption></figcaption>
+        <div class="image-modal__footer" style="margin-top: 1.5rem; text-align: left; display: none;">
+          <a href="#" class="story-link" style="text-decoration: none;" target="_blank" rel="noopener">Read the Story &rarr;</a>
+        </div>
       </figure>
     </div>
 
@@ -456,9 +459,6 @@ function escape($str) {
         <button class="story-modal__close" type="button" aria-label="Close story" data-close-story>×</button>
         <h2 class="story-modal__title"></h2>
         <div class="story-modal__body"></div>
-        <div class="story-modal__footer" style="margin-top: 1.5rem; text-align: left; display: none;">
-          <a href="#" class="story-link" style="text-decoration: none;" target="_blank" rel="noopener">Read the Story &rarr;</a>
-        </div>
         <div class="story-modal__source"></div>
       </article>
     </div>
@@ -506,8 +506,6 @@ function escape($str) {
         const storyTitle = storyModal.querySelector('.story-modal__title');
         const storyBody = storyModal.querySelector('.story-modal__body');
         const storySource = storyModal.querySelector('.story-modal__source');
-        const storyFooter = storyModal.querySelector('.story-modal__footer');
-        const storyFooterLink = storyFooter.querySelector('a');
         const storyCloseTargets = storyModal.querySelectorAll('[data-close-story]');
 
         function decodeStory(data) {
@@ -543,13 +541,6 @@ function escape($str) {
           
           const source = trigger.getAttribute('data-source');
           const link = trigger.getAttribute('data-link');
-          
-          if (link) {
-            storyFooterLink.href = link;
-            storyFooter.style.display = 'block';
-          } else {
-            storyFooter.style.display = 'none';
-          }
           
           if (source && link) {
             storySource.innerHTML = `<strong>Source:</strong> <a href="${link}" target="_blank" rel="noopener">${source}</a>`;
