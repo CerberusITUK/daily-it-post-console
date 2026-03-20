@@ -90,14 +90,32 @@ function get_posts() {
             if (is_string($hashtags)) {
                 $hashtags = array_filter(explode(' ', $hashtags));
             }
+            
+            $source_name = $post_data['source_name'] ?? 'Source';
+            $link = $post_data['article_link'] ?? '#';
+            
+            // Fix casing for known sources
+            $lower_source = strtolower($source_name);
+            $lower_link = strtolower($link);
+            if (strpos($lower_source, 'bleeping') !== false || strpos($lower_link, 'bleepingcomputer.com') !== false) {
+                $source_name = 'Bleeping Computer';
+            } elseif (strpos($lower_source, 'bbc') !== false || strpos($lower_link, 'bbc.co.uk') !== false || strpos($lower_link, 'bbc.com') !== false) {
+                $source_name = 'BBC News';
+            } elseif (strpos($lower_source, 'register') !== false || strpos($lower_link, 'theregister.com') !== false) {
+                $source_name = 'The Register';
+            } elseif (strpos($lower_source, 'techcrunch') !== false || strpos($lower_link, 'techcrunch.com') !== false) {
+                $source_name = 'TechCrunch';
+            } elseif (strpos($lower_source, 'cybernews') !== false || strpos($lower_link, 'cybernews.com') !== false) {
+                $source_name = 'Cybernews';
+            }
 
             $posts[] = [
                 'title'   => $title,
                 'summary' => $post_data['summary'] ?? '',
                 'image'   => $post_data['image'] ?? '',
-                'link'    => $post_data['article_link'] ?? '#',
+                'link'    => $link,
                 'date'    => $post_data['article_date'] ?? '',
-                'source'  => $post_data['source_name'] ?? 'Source',
+                'source'  => $source_name,
                 'tags'    => array_slice($hashtags, 0, 2),
                 'story'   => $post_data['story'] ?? ''
             ];
@@ -257,7 +275,7 @@ function escape($str) {
           <div class="hero-highlight">
             <?php if ($featured): ?>
               <div class="panel panel-featured">
-                <p class="eyebrow">Latest news item</p>
+                <span class="panel-badge" aria-label="Latest news item">Latest news item</span>
                 <p class="text top-left"><?= escape($featured['date']) ?></p>
                 <p class="text bottom-right">Source: <?= escape($featured['source']) ?></p>
                 <div class="panel-body">
