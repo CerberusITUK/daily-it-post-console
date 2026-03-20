@@ -365,43 +365,69 @@ function escape($str) {
             <article class="comic">
               <?php 
               $panel_variants = ['panel-large', 'panel-medium', 'panel-medium', 'panel-medium', 'panel-large', 'panel-medium', 'panel-medium', 'panel-medium', 'panel-large'];
+              
+              // Group posts into rows of 2
+              $rows = array_chunk($posts, 2);
+              
               $index = 0;
-              foreach ($posts as $post):
-                  $variant = $panel_variants[$index % count($panel_variants)];
+              foreach ($rows as $row):
+                  // Randomly pick the layout proportion for this row (e.g. 40/60, 50/50, 60/40)
+                  // But only if there are 2 items in the row
+                  $left_prop = 1;
+                  $right_prop = 1;
+                  if (count($row) === 2) {
+                      $layouts = [
+                          ['1fr', '1fr'],       // 50/50
+                          ['1fr', '1fr'],       // 50/50
+                          ['1.5fr', '1fr'],     // 60/40
+                          ['1fr', '1.5fr'],     // 40/60
+                      ];
+                      $layout = $layouts[array_rand($layouts)];
+                      $left_prop = $layout[0];
+                      $right_prop = $layout[1];
+                  }
+                  
+                  $row_class = count($row) === 1 ? 'comic-row single' : 'comic-row';
               ?>
-                <div class="panel <?= $variant ?>">
-                  <p class="text top-left"><?= escape($post['date']) ?></p>
-                  <p class="text bottom-right">Source: <?= escape($post['source']) ?></p>
-                  <div class="panel-body">
-                    <h3><?= escape($post['title']) ?></h3>
-                    <p><?= escape($post['summary']) ?></p>
-                    <?php if (!empty(trim($post['story'] ?? ''))): ?>
-                      <button
-                        type="button"
-                        class="story-link"
-                        data-title="<?= escape($post['title']) ?>"
-                        data-story="<?= escape(base64_encode($post['story'])) ?>"
-                        data-source="<?= escape($post['source']) ?>"
-                        data-link="<?= escape($post['link']) ?>"
-                      >Read the Story &rarr;</button>
-                    <?php endif; ?>
-                    <?php if (!empty($post['image'])): ?>
-                      <img src="<?= escape($post['image']) ?>" alt="Post image" width="400" height="267" loading="lazy" data-link="<?= escape($post['link']) ?>" />
-                    <?php endif; ?>
-                    <?php if (!empty($post['tags'])): ?>
-                      <div class="tag-row">
-                        <?php foreach ($post['tags'] as $tag): ?>
-                          <span class="tag"><?= escape($tag) ?></span>
-                        <?php endforeach; ?>
+                <div class="<?= $row_class ?>" style="--col-left: <?= $left_prop ?>; --col-right: <?= $right_prop ?>;">
+                  <?php foreach ($row as $post): 
+                      $variant = $panel_variants[$index % count($panel_variants)];
+                  ?>
+                    <div class="panel <?= $variant ?>">
+                      <p class="text top-left"><?= escape($post['date']) ?></p>
+                      <p class="text bottom-right">Source: <?= escape($post['source']) ?></p>
+                      <div class="panel-body">
+                        <h3><?= escape($post['title']) ?></h3>
+                        <p><?= escape($post['summary']) ?></p>
+                        <?php if (!empty(trim($post['story'] ?? ''))): ?>
+                          <button
+                            type="button"
+                            class="story-link"
+                            data-title="<?= escape($post['title']) ?>"
+                            data-story="<?= escape(base64_encode($post['story'])) ?>"
+                            data-source="<?= escape($post['source']) ?>"
+                            data-link="<?= escape($post['link']) ?>"
+                          >Read the Story &rarr;</button>
+                        <?php endif; ?>
+                        <?php if (!empty($post['image'])): ?>
+                          <img src="<?= escape($post['image']) ?>" alt="Post image" width="400" height="267" loading="lazy" data-link="<?= escape($post['link']) ?>" />
+                        <?php endif; ?>
+                        <?php if (!empty($post['tags'])): ?>
+                          <div class="tag-row">
+                            <?php foreach ($post['tags'] as $tag): ?>
+                              <span class="tag"><?= escape($tag) ?></span>
+                            <?php endforeach; ?>
+                          </div>
+                        <?php endif; ?>
                       </div>
-                    <?php endif; ?>
-                  </div>
-                  <a href="<?= escape($post['link']) ?>" class="panel-link" target="_blank" rel="noopener">Open article →</a>
+                      <a href="<?= escape($post['link']) ?>" class="panel-link" target="_blank" rel="noopener">Open article →</a>
+                    </div>
+                  <?php 
+                  $index++;
+                  endforeach; 
+                  ?>
                 </div>
-              <?php 
-              $index++;
-              endforeach; 
-              ?>
+              <?php endforeach; ?>
             </article>
 
             <?php if ($total_pages > 1): ?>

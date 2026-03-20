@@ -271,16 +271,25 @@ a:hover {
 }
 
 .comic {
-  display: grid;
-  grid-template-columns: 1fr;
+  display: flex;
+  flex-direction: column;
   gap: 3rem;
   margin-top: 1rem;
   font-family: 'Bangers', 'Comic Sans MS', cursive;
 }
 
+.comic-row {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 3rem;
+}
+
 @media (min-width: 800px) {
-  .comic {
-    grid-template-columns: repeat(2, 1fr);
+  .comic-row {
+    grid-template-columns: var(--col-left, 1fr) var(--col-right, 1fr);
+  }
+  .comic-row.single {
+    grid-template-columns: 1fr;
   }
 }
 
