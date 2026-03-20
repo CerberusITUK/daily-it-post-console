@@ -864,7 +864,7 @@ jobs:
           fi
 
       - name: Publish Console Result JSON
-        if: steps.vars.outputs.action != 'approve'
+        if: steps.vars.outputs.action == 'approve'
         env:
           IMAGE_REPO_PAT: ${{ secrets.IMAGE_REPO_PAT }}
           IMAGE_REPO: CerberusITUK/daily-post-images
