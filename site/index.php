@@ -3,6 +3,7 @@
 $repo_owner = 'CerberusITUK';
 $repo_name  = 'daily-post-images';
 $cache_file = __DIR__ . '/posts_cache.json';
+$image_cache_dir = __DIR__ . '/images';
 $cache_time = 300; // Cache duration in seconds (5 minutes)
 $posts_per_page = 24;
 
@@ -37,6 +38,33 @@ function fetch_github_json($url) {
     $context = stream_context_create($options);
     $response = @file_get_contents($url, false, $context);
     return $response ? json_decode($response, true) : null;
+}
+
+function get_cached_image($image_url) {
+    global $image_cache_dir;
+    
+    if (empty($image_url)) return '';
+    
+    if (!is_dir($image_cache_dir)) {
+        @mkdir($image_cache_dir, 0755, true);
+    }
+    
+    // Generate a safe filename based on the URL
+    $filename = md5($image_url) . '.jpg';
+    $local_path = $image_cache_dir . '/' . $filename;
+    $public_path = 'images/' . $filename;
+    
+    // If it doesn't exist locally, download it
+    if (!file_exists($local_path)) {
+        $image_data = @file_get_contents($image_url);
+        if ($image_data !== false) {
+            file_put_contents($local_path, $image_data);
+        } else {
+            return $image_url; // Fallback to remote if download fails
+        }
+    }
+    
+    return $public_path;
 }
 
 function get_posts() {
@@ -112,7 +140,7 @@ function get_posts() {
             $posts[] = [
                 'title'   => $title,
                 'summary' => $post_data['summary'] ?? '',
-                'image'   => $post_data['image'] ?? '',
+                'image'   => get_cached_image($post_data['image'] ?? ''),
                 'link'    => $link,
                 'date'    => $post_data['article_date'] ?? '',
                 'timestamp' => $post_data['timestamp'] ?? '',
