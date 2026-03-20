@@ -255,8 +255,9 @@ a:hover {
   color: var(--muted);
 }
 
-.posts {
-  padding: 3rem 0 1rem;
+
+.comic-section {
+  padding: 3rem 0 1.5rem;
 }
 
 .section-header {
@@ -268,86 +269,153 @@ a:hover {
   margin-bottom: 1.5rem;
 }
 
-.posts-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-  grid-auto-flow: dense;
-  gap: 1.5rem;
+.comic {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1.25rem;
+  font-family: 'Bangers', 'Comic Sans MS', cursive;
 }
 
-@media (min-width: 900px) {
-  .posts-grid {
-    grid-template-columns: repeat(4, 1fr);
-  }
-  
-  .panel-wide {
-    grid-column: span 2;
-  }
-  
-  .panel-tall {
-    grid-row: span 2;
-  }
-  
-  .panel-tall .post-image {
-    height: 350px;
-  }
-  
-  .panel-burst {
-    clip-path: polygon(0% 15%, 15% 15%, 15% 0%, 85% 0%, 85% 15%, 100% 15%, 100% 85%, 85% 85%, 85% 100%, 15% 100%, 15% 85%, 0% 85%);
-    border: none;
-    background: var(--accent);
-    color: #fff;
-  }
-  
-  .panel-burst h3, .panel-burst p, .panel-burst .post-meta {
-    color: #fff;
-  }
-  
-  .panel-burst .btn.ghost {
-    background: #fff;
-    color: #000;
-  }
-}
-
-.post-card {
-  background: var(--card);
-  border-radius: 12px;
-  padding: 1.5rem;
-  border: 3px solid var(--line);
-  box-shadow: var(--shadow);
+.panel {
+  background: #fff;
+  border: 3px solid #000;
+  box-shadow: 0 6px 6px -6px #000;
+  flex: 1 1 220px;
+  min-height: 220px;
+  padding: 1rem;
+  position: relative;
+  overflow: hidden;
   display: flex;
   flex-direction: column;
-  gap: 0.75rem;
-  position: relative;
-  min-height: 270px;
-  transition: transform 0.2s ease, box-shadow 0.2s ease;
-}
-
-.post-card:hover {
-  transform: translate(-2px, -2px);
-  box-shadow: 8px 8px 0px var(--line);
-}
-
-.post-card h3 {
-  margin: 0;
-  font-size: 1.3rem;
-  font-weight: 800;
-}
-
-.post-card p {
-  margin: 0;
-  color: var(--muted);
-}
-
-.post-meta {
-  font-size: 0.85rem;
-  color: var(--muted);
-}
-
-.post-card .tag-row {
-  display: flex;
   gap: 0.5rem;
+}
+
+.panel-large {
+  flex-basis: 400px;
+}
+
+.panel-medium {
+  flex-basis: 250px;
+}
+
+.panel-speech {
+  flex-basis: 280px;
+  justify-content: center;
+  align-items: center;
+}
+
+.panel img {
+  width: 100%;
+  height: 160px;
+  object-fit: contain; /* make fully visible */
+  background: #000; /* dark background behind contained image to pop */
+  border: 2px solid #000;
+  border-radius: 6px;
+  margin-top: 0.5rem;
+}
+
+.panel-body {
+  font-family: var(--font); /* fallback to Space Grotesk / system sans */
+}
+
+.panel-body h3 {
+  font-size: 1.3rem;
+  margin: 0;
+  font-family: 'Bangers', 'Comic Sans MS', cursive; /* keep heading comic style */
+  letter-spacing: 0.05em;
+}
+
+.panel-body p {
+  margin: 0.35rem 0;
+  font-size: 0.95rem;
+  line-height: 1.5;
+}
+
+.panel-link {
+  margin-top: auto;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.text {
+  background: #fff;
+  border: 2px solid #000;
+  padding: 4px 12px;
+  margin: 0;
+  font-size: 0.8rem;
+  text-transform: uppercase;
+}
+
+.text.top-left {
+  position: absolute;
+  top: -4px;
+  left: -8px;
+  transform: skew(-12deg);
+}
+
+.text.bottom-right {
+  position: absolute;
+  bottom: -4px;
+  right: -8px;
+  transform: skew(-12deg);
+}
+
+.speech {
+  background: #fff;
+  border: 3px solid #000;
+  padding: 1rem 1.5rem;
+  border-radius: 18px;
+  font-size: 1.1rem;
+  text-align: center;
+  position: relative;
+  max-width: 260px;
+}
+
+.speech::before,
+.speech::after {
+  content: '';
+  position: absolute;
+  bottom: -24px;
+  left: 30px;
+  width: 0;
+  height: 0;
+  transform: skew(-15deg);
+}
+
+.speech::before {
+  border: 12px solid transparent;
+  border-left-color: #000;
+  border-top-color: #000;
+}
+
+.speech::after {
+  border: 10px solid transparent;
+  border-left-color: #fff;
+  border-top-color: #fff;
+  bottom: -19px;
+  left: 33px;
+}
+
+.panel:nth-child(4n + 1) {
+  background-image: radial-gradient(circle at top, #fff7a5, #ffbd59);
+}
+
+.panel:nth-child(4n + 2) {
+  background-image: radial-gradient(circle at top, #b4f1ff, #2ec4ff);
+}
+
+.panel:nth-child(4n + 3) {
+  background-image: radial-gradient(circle at top, #caffbf, #70e000);
+}
+
+.panel:nth-child(4n + 4) {
+  background-image: radial-gradient(circle at top, #ffd6e0, #ff6392);
+}
+
+.panel .tag-row {
+  display: flex;
   flex-wrap: wrap;
+  gap: 0.35rem;
 }
 
 .tag {

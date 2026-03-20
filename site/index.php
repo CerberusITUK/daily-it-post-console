@@ -137,7 +137,7 @@ function trim_summary($text) {
     <meta http-equiv="X-UA-Compatible" content="IE=edge" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Daily IT Gremlins – Cerberus IT</title>
-    <meta name="description" content="Daily IT Gremlins delivers brutally honest IT outage news, witty commentary, and Bluesky-ready summaries from Cerberus IT." />
+    <meta name="description" content="Daily IT Gremlins delivers brutally honest IT outage news, witty commentary, and punchy summaries from Cerberus IT." />
     <meta property="og:title" content="Daily IT Gremlins – Cerberus IT" />
     <meta property="og:description" content="A daily log of outages, cyber mishaps, and sarcastic takes curated by Cerberus IT." />
     <meta property="og:type" content="website" />
@@ -145,7 +145,7 @@ function trim_summary($text) {
     <meta property="og:image" content="https://cerberus-it.co.uk/images/daily-it-og.png" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet" />
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Bangers&display=swap" rel="stylesheet" />
     <link rel="stylesheet" href="./styles.css" />
     <link rel="canonical" href="https://cerberus-it.co.uk/it-blog" />
     <script type="application/ld+json">
@@ -222,7 +222,7 @@ function trim_summary($text) {
         </div>
       </section>
 
-      <section class="posts" id="recent-posts">
+      <section class="comic-section" id="recent-posts">
         <div class="shell">
           <div class="section-header">
             <div>
@@ -230,38 +230,42 @@ function trim_summary($text) {
               <h2>Latest Daily IT Gremlins</h2>
             </div>
           </div>
-          
-          <div class="posts-grid">
-            <?php if (empty($posts)): ?>
-                <div class="placeholder-card">No stories available yet.</div>
-            <?php else: ?>
-                <?php 
-                // We'll map different grid classes to give the comic panel feel
-                $comic_classes = ['panel-wide', 'panel-tall', 'panel-small', 'panel-small', 'panel-wide', 'panel-square', 'panel-burst', 'panel-small', 'panel-tall'];
-                $i = 0;
-                foreach ($posts as $post): 
-                    $panel_class = $comic_classes[$i % count($comic_classes)];
-                ?>
-                <article class="post-card <?= $panel_class ?>">
-                    <?php if (!empty($post['image'])): ?>
-                        <img src="<?= escape($post['image']) ?>" alt="Post image" class="post-image" loading="lazy" />
-                    <?php endif; ?>
+
+          <?php if (empty($posts)): ?>
+            <div class="placeholder-card">No stories available yet.</div>
+          <?php else: ?>
+            <article class="comic">
+              <?php 
+              $panel_variants = ['panel-large', 'panel-medium', 'panel-medium', 'panel-medium', 'panel-large', 'panel-medium', 'panel-medium', 'panel-medium', 'panel-large'];
+              $index = 0;
+              foreach ($posts as $post):
+                  $variant = $panel_variants[$index % count($panel_variants)];
+              ?>
+                <div class="panel <?= $variant ?>">
+                  <p class="text top-left"><?= escape($post['date']) ?></p>
+                  <p class="text bottom-right">Source: <?= escape($post['source']) ?></p>
+                  <div class="panel-body">
                     <h3><?= escape($post['title']) ?></h3>
                     <p><?= escape(trim_summary($post['summary'])) ?></p>
-                    <p class="post-meta"><?= escape($post['source']) ?> &bull; <?= escape($post['date']) ?></p>
-                    <div class="tag-row">
+                    <?php if (!empty($post['image'])): ?>
+                      <img src="<?= escape($post['image']) ?>" alt="Post image" loading="lazy" />
+                    <?php endif; ?>
+                    <?php if (!empty($post['tags'])): ?>
+                      <div class="tag-row">
                         <?php foreach ($post['tags'] as $tag): ?>
-                            <span class="tag"><?= escape($tag) ?></span>
+                          <span class="tag"><?= escape($tag) ?></span>
                         <?php endforeach; ?>
-                    </div>
-                    <a href="<?= escape($post['link']) ?>" target="_blank" rel="noopener" class="btn ghost" style="margin-top: auto;">Open article</a>
-                </article>
-                <?php 
-                $i++;
-                endforeach; 
-                ?>
-            <?php endif; ?>
-          </div>
+                      </div>
+                    <?php endif; ?>
+                  </div>
+                  <a href="<?= escape($post['link']) ?>" class="panel-link" target="_blank" rel="noopener">Open article →</a>
+                </div>
+              <?php 
+              $index++;
+              endforeach; 
+              ?>
+            </article>
+          <?php endif; ?>
         </div>
       </section>
 
@@ -302,8 +306,8 @@ function trim_summary($text) {
         <div>
           <p class="eyebrow">Follow</p>
           <ul>
-            <li><a href="https://bsky.app/profile/dailyit.news" target="_blank" rel="noopener">Bluesky</a></li>
             <li><a href="https://linkedin.com/company/cerberus-it-uk" target="_blank" rel="noopener">LinkedIn</a></li>
+            <li><a href="https://mastodon.social/@CerberusITUK" target="_blank" rel="noopener">Mastodon</a></li>
             <li><a href="https://github.com/CerberusITUK" target="_blank" rel="noopener">GitHub</a></li>
           </ul>
         </div>
