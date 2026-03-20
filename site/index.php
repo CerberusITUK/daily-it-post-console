@@ -361,6 +361,7 @@ function escape($str) {
     <footer class="site-footer">
       <div class="shell footer-grid">
         <div>
+          <p class="eyebrow">About</p>
           <span class="logo-sigil">CI</span>
           <p>Security-first IT managed services from the grumpy engineers at Cerberus IT.</p>
         </div>
@@ -383,5 +384,52 @@ function escape($str) {
       </div>
       <p class="footer-note">© <?= date('Y') ?> Cerberus IT. All rights reserved.</p>
     </footer>
+
+    <div id="image-modal" class="image-modal" aria-hidden="true">
+      <div class="image-modal__backdrop" data-close-modal></div>
+      <figure class="image-modal__content">
+        <button class="image-modal__close" type="button" aria-label="Close image" data-close-modal>×</button>
+        <img src="" alt="Expanded post image" />
+        <figcaption></figcaption>
+      </figure>
+    </div>
+
+    <script>
+      (function() {
+        const modal = document.getElementById('image-modal');
+        if (!modal) return;
+        const modalImg = modal.querySelector('img');
+        const caption = modal.querySelector('figcaption');
+        const closeTargets = modal.querySelectorAll('[data-close-modal]');
+
+        function openModal(img) {
+          modalImg.src = img.src;
+          modalImg.alt = img.alt || 'Expanded post image';
+          caption.textContent = img.closest('.panel')?.querySelector('h3')?.textContent || img.alt || '';
+          modal.classList.add('is-visible');
+          modal.setAttribute('aria-hidden', 'false');
+          document.body.style.overflow = 'hidden';
+        }
+
+        function closeModal() {
+          modal.classList.remove('is-visible');
+          modal.setAttribute('aria-hidden', 'true');
+          modalImg.src = '';
+          document.body.style.overflow = '';
+        }
+
+        document.querySelectorAll('.panel img').forEach((img) => {
+          img.style.cursor = 'zoom-in';
+          img.addEventListener('click', () => openModal(img));
+        });
+
+        closeTargets.forEach((el) => el.addEventListener('click', closeModal));
+        modal.addEventListener('keyup', (event) => {
+          if (event.key === 'Escape') {
+            closeModal();
+          }
+        });
+      })();
+    </script>
   </body>
 </html>
