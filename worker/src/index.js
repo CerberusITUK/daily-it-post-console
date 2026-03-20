@@ -37,6 +37,9 @@ export default {
       return jsonResponse(env, { ok: true, message: 'Daily IT Console Worker' }, 200, env.__REQUEST_ORIGIN);
     } catch (error) {
       console.error('Worker error', error);
+      if (error instanceof ApiError) {
+        return jsonResponse(env, { error: error.message }, error.status, env.__REQUEST_ORIGIN);
+      }
       return jsonResponse(env, { error: 'Internal Server Error' }, 500, env.__REQUEST_ORIGIN);
     }
   }
@@ -710,6 +713,19 @@ function selectBalancedArticles(entries, limit) {
 function deriveSourceName(url) {
   try {
     const host = new URL(url).hostname.replace(/^www\./, '');
+    if (host.includes('bleepingcomputer.com')) return 'Bleeping Computer';
+    if (host.includes('bbc.co.uk') || host.includes('bbc.com')) return 'BBC News';
+    if (host.includes('theregister.com')) return 'The Register';
+    if (host.includes('gizmodo.com')) return 'Gizmodo';
+    if (host.includes('infosecurity-magazine.com')) return 'Infosecurity Magazine';
+    if (host.includes('techcrunch.com')) return 'TechCrunch';
+    if (host.includes('cybernews.com')) return 'Cybernews';
+    if (host.includes('wired.com')) return 'WIRED';
+    if (host.includes('theverge.com')) return 'The Verge';
+    if (host.includes('zdnet.com')) return 'ZDNet';
+    if (host.includes('arstechnica.com')) return 'Ars Technica';
+    if (host.includes('darkreading.com')) return 'Dark Reading';
+
     const parts = host.split('.');
     const core = parts.length >= 3 && ['co', 'com', 'org', 'net', 'gov'].includes(parts.at(-2)) ? parts.at(-3) : parts.at(-2) || parts[0];
     return core.replace(/-/g, ' ').replace(/\b\w/g, (m) => m.toUpperCase());
