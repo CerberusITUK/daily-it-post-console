@@ -4,7 +4,7 @@ $repo_owner = 'CerberusITUK';
 $repo_name  = 'daily-post-images';
 $cache_file = __DIR__ . '/posts_cache.json';
 $cache_time = 300; // Cache duration in seconds (5 minutes)
-$max_posts  = 9;
+$max_posts  = 24;
 
 // Optional token support: either define GITHUB_CONTENT_TOKEN in config.php or set env var
 $github_token = getenv('GITHUB_CONTENT_TOKEN') ?: (defined('GITHUB_CONTENT_TOKEN') ? GITHUB_CONTENT_TOKEN : null);
