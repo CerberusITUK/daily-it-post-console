@@ -298,6 +298,8 @@ function escape($str) {
                     class="story-link"
                     data-title="<?= escape($featured['title']) ?>"
                     data-story="<?= escape(base64_encode($featured['story'])) ?>"
+                    data-source="<?= escape($featured['source']) ?>"
+                    data-link="<?= escape($featured['link']) ?>"
                   >What's the story?</button>
                 <?php endif; ?>
                 <a href="<?= escape($featured['link']) ?>" class="panel-link" target="_blank" rel="noopener">Open article →</a>
@@ -360,6 +362,8 @@ function escape($str) {
                       class="story-link"
                       data-title="<?= escape($post['title']) ?>"
                       data-story="<?= escape(base64_encode($post['story'])) ?>"
+                      data-source="<?= escape($post['source']) ?>"
+                      data-link="<?= escape($post['link']) ?>"
                     >What's the story?</button>
                   <?php endif; ?>
                   <a href="<?= escape($post['link']) ?>" class="panel-link" target="_blank" rel="noopener">Open article →</a>
@@ -450,6 +454,7 @@ function escape($str) {
         <button class="story-modal__close" type="button" aria-label="Close story" data-close-story>×</button>
         <h3 class="story-modal__title"></h3>
         <div class="story-modal__body"></div>
+        <div class="story-modal__source"></div>
       </article>
     </div>
 
@@ -493,6 +498,7 @@ function escape($str) {
         if (!storyModal) return;
         const storyTitle = storyModal.querySelector('.story-modal__title');
         const storyBody = storyModal.querySelector('.story-modal__body');
+        const storySource = storyModal.querySelector('.story-modal__source');
         const storyCloseTargets = storyModal.querySelectorAll('[data-close-story]');
 
         function decodeStory(data) {
@@ -525,6 +531,16 @@ function escape($str) {
           if (!decoded.trim()) return;
           storyTitle.textContent = trigger.getAttribute('data-title') || 'Story';
           renderStoryParagraphs(decoded);
+          
+          const source = trigger.getAttribute('data-source');
+          const link = trigger.getAttribute('data-link');
+          if (source && link) {
+            storySource.innerHTML = `<strong>Source:</strong> <a href="${link}" target="_blank" rel="noopener">${source}</a>`;
+            storySource.style.display = 'block';
+          } else {
+            storySource.style.display = 'none';
+          }
+          
           storyModal.classList.add('is-visible');
           storyModal.setAttribute('aria-hidden', 'false');
           document.body.style.overflow = 'hidden';
@@ -534,6 +550,7 @@ function escape($str) {
           storyModal.classList.remove('is-visible');
           storyModal.setAttribute('aria-hidden', 'true');
           storyBody.innerHTML = '';
+          if (storySource) storySource.innerHTML = '';
           document.body.style.overflow = '';
         }
 

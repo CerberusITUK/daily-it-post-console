@@ -510,6 +510,23 @@ a:hover {
   line-height: 1.5;
 }
 
+.story-modal__source {
+  margin-top: 1rem;
+  padding-top: 1rem;
+  border-top: 2px solid #000;
+  font-size: 0.95rem;
+}
+
+.story-modal__source a {
+  color: var(--accent);
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.story-modal__source a:hover {
+  text-decoration: underline;
+}
+
 .story-modal__close {
   position: absolute;
   top: 0.5rem;
