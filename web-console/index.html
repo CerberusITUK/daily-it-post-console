@@ -114,15 +114,39 @@
     <template id="article-item-template">
       <li>
         <div class="article-item-wrapper">
-          <button class="article-item">
-            <span class="article-title"></span>
-            <span class="article-source"></span>
-            <span class="article-date"></span>
-          </button>
+          <div class="article-item" role="button" tabindex="0" aria-label="Read story">
+            <div class="article-content">
+              <span class="article-title"></span>
+              <span class="article-source"></span>
+              <span class="article-date"></span>
+            </div>
+            <div class="article-actions">
+              <button class="send-to-ai-btn primary-small">Send to AI</button>
+            </div>
+            <span class="posted-badge hidden">✓ Posted</span>
+          </div>
           <button class="hide-btn" aria-label="Hide article" title="Hide this article">×</button>
         </div>
       </li>
     </template>
+
+    <!-- Story Modal -->
+    <div id="story-modal" class="modal-overlay hidden" aria-hidden="true" inert>
+      <div class="modal-content card" role="dialog" aria-modal="true" aria-labelledby="story-modal-title">
+        <header class="modal-header">
+          <h2 id="story-modal-title">Story Preview</h2>
+          <button id="story-modal-close" class="ghost-small" aria-label="Close modal">✕</button>
+        </header>
+        <div class="modal-body">
+          <div id="story-modal-source" class="article-source"></div>
+          <p id="story-modal-summary" class="article-summary"></p>
+          <a id="story-modal-link" href="#" target="_blank" rel="noopener" class="external-link">Read full original article ↗</a>
+        </div>
+        <footer class="modal-footer">
+          <button id="story-modal-send-btn" class="primary">Send to AI</button>
+        </footer>
+      </div>
+    </div>
 
     <script type="module" src="app.js"></script>
   </body>
