@@ -98,7 +98,8 @@ function get_posts() {
                 'link'    => $post_data['article_link'] ?? '#',
                 'date'    => $post_data['article_date'] ?? '',
                 'source'  => $post_data['source_name'] ?? 'Source',
-                'tags'    => array_slice($hashtags, 0, 2)
+                'tags'    => array_slice($hashtags, 0, 2),
+                'story'   => $post_data['story'] ?? ''
             ];
             $count++;
         }
@@ -125,7 +126,8 @@ foreach ($all_posts_raw['posts'] as $item) {
         'link'    => $item['link'] ?? '#',
         'source'  => $item['source'] ?? 'Unknown',
         'tags'    => $item['tags'] ?? [],
-        'image'   => $item['image'] ?? null
+        'image'   => $item['image'] ?? null,
+        'story'   => $item['story'] ?? ''
     ];
 }
 
@@ -142,17 +144,30 @@ function parse_uk_date($date_str) {
     return strtotime($date_str);
 }
 
+// Always feature the newest post regardless of list sort order
+$featured = null;
+$latest_index = null;
+$latest_timestamp = null;
+foreach ($all_posts as $idx => $post) {
+    $ts = parse_uk_date($post['date'] ?? '');
+    if ($latest_timestamp === null || $ts > $latest_timestamp) {
+        $latest_timestamp = $ts;
+        $latest_index = $idx;
+    }
+}
+
+if ($latest_index !== null) {
+    $featured = $all_posts[$latest_index];
+    unset($all_posts[$latest_index]);
+    $all_posts = array_values($all_posts);
+}
+
 // Sort by date
 usort($all_posts, function($a, $b) use ($sort_order) {
     $timeA = parse_uk_date($a['date'] ?? '');
     $timeB = parse_uk_date($b['date'] ?? '');
     return $sort_order === 'asc' ? $timeA - $timeB : $timeB - $timeA;
 });
-
-$featured = null;
-if (!empty($all_posts)) {
-    $featured = array_shift($all_posts);
-}
 
 $total_posts = count($all_posts);
 
@@ -242,6 +257,7 @@ function escape($str) {
           <div class="hero-highlight">
             <?php if ($featured): ?>
               <div class="panel panel-featured">
+                <p class="eyebrow">Latest news item</p>
                 <p class="text top-left"><?= escape($featured['date']) ?></p>
                 <p class="text bottom-right">Source: <?= escape($featured['source']) ?></p>
                 <div class="panel-body">
@@ -258,6 +274,14 @@ function escape($str) {
                     </div>
                   <?php endif; ?>
                 </div>
+                <?php if (!empty(trim($featured['story'] ?? ''))): ?>
+                  <button
+                    type="button"
+                    class="story-link"
+                    data-title="<?= escape($featured['title']) ?>"
+                    data-story="<?= escape(base64_encode($featured['story'])) ?>"
+                  >What's the story?</button>
+                <?php endif; ?>
                 <a href="<?= escape($featured['link']) ?>" class="panel-link" target="_blank" rel="noopener">Open article →</a>
               </div>
             <?php else: ?>
@@ -312,6 +336,14 @@ function escape($str) {
                       </div>
                     <?php endif; ?>
                   </div>
+                  <?php if (!empty(trim($post['story'] ?? ''))): ?>
+                    <button
+                      type="button"
+                      class="story-link"
+                      data-title="<?= escape($post['title']) ?>"
+                      data-story="<?= escape(base64_encode($post['story'])) ?>"
+                    >What's the story?</button>
+                  <?php endif; ?>
                   <a href="<?= escape($post['link']) ?>" class="panel-link" target="_blank" rel="noopener">Open article →</a>
                 </div>
               <?php 
@@ -394,6 +426,15 @@ function escape($str) {
       </figure>
     </div>
 
+    <div id="story-modal" class="story-modal" aria-hidden="true">
+      <div class="story-modal__backdrop" data-close-story></div>
+      <article class="story-modal__content">
+        <button class="story-modal__close" type="button" aria-label="Close story" data-close-story>×</button>
+        <h3 class="story-modal__title"></h3>
+        <div class="story-modal__body"></div>
+      </article>
+    </div>
+
     <script>
       (function() {
         const modal = document.getElementById('image-modal');
@@ -427,6 +468,65 @@ function escape($str) {
         modal.addEventListener('keyup', (event) => {
           if (event.key === 'Escape') {
             closeModal();
+          }
+        });
+
+        const storyModal = document.getElementById('story-modal');
+        if (!storyModal) return;
+        const storyTitle = storyModal.querySelector('.story-modal__title');
+        const storyBody = storyModal.querySelector('.story-modal__body');
+        const storyCloseTargets = storyModal.querySelectorAll('[data-close-story]');
+
+        function decodeStory(data) {
+          try {
+            const decoded = atob(data);
+            return decodeURIComponent(escape(decoded));
+          } catch (err) {
+            try {
+              return atob(data);
+            } catch (err2) {
+              return '';
+            }
+          }
+        }
+
+        function renderStoryParagraphs(text) {
+          storyBody.innerHTML = '';
+          text.split('\n\n').forEach((para) => {
+            if (!para.trim()) return;
+            const p = document.createElement('p');
+            p.textContent = para.trim();
+            storyBody.appendChild(p);
+          });
+        }
+
+        function openStoryModal(trigger) {
+          const data = trigger.getAttribute('data-story');
+          if (!data) return;
+          const decoded = decodeStory(data);
+          if (!decoded.trim()) return;
+          storyTitle.textContent = trigger.getAttribute('data-title') || 'Story';
+          renderStoryParagraphs(decoded);
+          storyModal.classList.add('is-visible');
+          storyModal.setAttribute('aria-hidden', 'false');
+          document.body.style.overflow = 'hidden';
+        }
+
+        function closeStoryModal() {
+          storyModal.classList.remove('is-visible');
+          storyModal.setAttribute('aria-hidden', 'true');
+          storyBody.innerHTML = '';
+          document.body.style.overflow = '';
+        }
+
+        document.querySelectorAll('.story-link').forEach((btn) => {
+          btn.addEventListener('click', () => openStoryModal(btn));
+        });
+
+        storyCloseTargets.forEach((el) => el.addEventListener('click', closeStoryModal));
+        storyModal.addEventListener('keyup', (event) => {
+          if (event.key === 'Escape') {
+            closeStoryModal();
           }
         });
       })();

@@ -51,6 +51,11 @@ on:
         required: false
         default: ""
         type: string
+      story:
+        description: "Two-paragraph story text"
+        required: false
+        default: ""
+        type: string
       article_payload:
         description: "JSON blob describing a pre-selected article"
         required: false
@@ -97,6 +102,9 @@ jobs:
           EOF
           cat << 'EOF' >> $GITHUB_OUTPUT
           article_payload=${{ github.event.inputs.article_payload || '' }}
+          EOF
+          cat << 'EOF' >> $GITHUB_OUTPUT
+          story=${{ github.event.inputs.story || '' }}
           EOF
 
       - name: Export UI Inputs
@@ -522,7 +530,7 @@ jobs:
           if [ -n "$PROMPT_NOTES_SAFE" ]; then
             PROMPT_APPEND=" Additional operator notes: $PROMPT_NOTES_SAFE"
           fi
-          PROMPT_TEXT="You are a deeply cynical, highly sarcastic IT engineer. Read this news: $ARTICLE_SUMMARY. STRICT FORMAT REQUIREMENT: Your summary must be exactly 3 sentences long. Sentences 1 and 2 must sarcastically describe the core news in plain English that a non-technical person understands (e.g. 'the internet broke because someone tripped over a wire' instead of 'BGP routes dropped'). Sentence 3 must be a standalone, biting, hilarious punchline about the situation. Also provide a witty title and sarcastic hashtags. Negative prompt: no offensive stereotypes, no derogatory terms, no caricatured ethnicity, never use slurs or nicknames like 'Nork' or anything similar. CRITICAL: The total combined length of the title and summary MUST be under 200 characters to leave room for the link. Make it punchy. Output ONLY valid JSON in this exact format: {\"title\": \"<text>\", \"summary\": \"<text>\", \"hashtags\": [\"#tag1\",\"#tag2\"]}."$PROMPT_APPEND
+          PROMPT_TEXT="You are a deeply cynical, highly sarcastic IT engineer. Read this news: $ARTICLE_SUMMARY. STRICT FORMAT REQUIREMENT: Your summary must be exactly 3 sentences long. Sentences 1 and 2 must sarcastically describe the core news in plain English that a non-technical person understands (e.g. 'the internet broke because someone tripped over a wire' instead of 'BGP routes dropped'). Sentence 3 must be a standalone, biting, hilarious punchline about the situation. Also provide a witty title and sarcastic hashtags. Then write a 'story' field that is exactly two paragraphs long (2-3 sentences per paragraph) which retells the news item with slightly sarcastic narration but enough detail that a non-technical reader can follow what happened. Separate the two paragraphs with a blank line. Negative prompt: no offensive stereotypes, no derogatory terms, no caricatured ethnicity, never use slurs or nicknames like 'Nork' or anything similar. CRITICAL: The total combined length of the title and summary MUST be under 200 characters to leave room for the link. Make it punchy. Output ONLY valid JSON in this exact format: {\"title\": \"<text>\", \"summary\": \"<text>\", \"hashtags\": [\"#tag1\",\"#tag2\"], \"story\": \"<paragraph1>\\n\\n<paragraph2>\"}."$PROMPT_APPEND
 
           PAYLOAD=$(jq -n --arg msg "$PROMPT_TEXT" '{model: "nousresearch/hermes-3-llama-3.1-405b", messages: [{role: "user", content: $msg}], max_tokens:250}')
 
@@ -608,6 +616,18 @@ jobs:
                           continue
               return None
 
+          def normalize_story(text: str) -> str:
+              cleaned = (text or "").replace('\r\n', '\n').strip()
+              if not cleaned:
+                  return ''
+              paragraphs = [para.strip() for para in cleaned.split('\n\n') if para.strip()]
+              if not paragraphs:
+                  return ''
+              if len(paragraphs) > 2:
+                  paragraphs = paragraphs[:2]
+              return '\n\n'.join(paragraphs)
+
+          story_text = ''
           try:
               ai_payload = json.loads(resp)
               content = ai_payload["choices"][0]["message"]["content"]
@@ -629,9 +649,11 @@ jobs:
 
               final_summary = " ".join(final_summary.split())
               hashtags = " ".join(tag.strip() for tag in hashtags_list if tag and tag.strip()) or "#IT #News"
+              story_text = normalize_story(data.get("story", ""))
           except Exception:
               final_summary = "Failed to parse AI summary."
               hashtags = "#IT #News"
+              story_text = ''
 
           with open(os.environ['GITHUB_ENV'], 'a', encoding='utf-8') as env_file:
               env_file.write(f"SUMMARY_TEXT={final_summary}\n")
@@ -641,10 +663,18 @@ jobs:
               env_file.write(f"SOURCE_LINE=Source: {source_name}\n")
               env_file.write(f"ARTICLE_LINK={article_link}\n")
               env_file.write(f"DATE_LINE=Date: {article_date}\n")
+              env_file.write("STORY_TEXT<<EOF\n")
+              env_file.write(story_text + "\n")
+              env_file.write("EOF\n")
+              env_file.write("CURRENT_STORY<<EOF\n")
+              env_file.write(story_text + "\n")
+              env_file.write("EOF\n")
           EOF
 
       - name: Use Existing Summary for Redo Image
         if: steps.vars.outputs.action == 'redo_image'
+        env:
+          REDO_STORY: ${{ steps.vars.outputs.story }}
         run: |
           echo "CURRENT_SUMMARY=${{ steps.vars.outputs.summary }}" >> $GITHUB_ENV
           echo "HASHTAGS_TEXT=${{ steps.vars.outputs.hashtags }}" >> $GITHUB_ENV
@@ -653,6 +683,18 @@ jobs:
           echo "SOURCE_NAME=${{ steps.vars.outputs.source_name }}" >> $GITHUB_ENV
           if [ -n "${{ steps.vars.outputs.image }}" ]; then
             echo "CURRENT_IMAGE=${{ steps.vars.outputs.image }}" >> $GITHUB_ENV
+          fi
+          if [ -n "$REDO_STORY" ]; then
+            {
+              echo 'CURRENT_STORY<<EOF'
+              printf '%s\n' "$REDO_STORY"
+              echo 'EOF'
+            } >> $GITHUB_ENV
+            {
+              echo 'STORY_TEXT<<EOF'
+              printf '%s\n' "$REDO_STORY"
+              echo 'EOF'
+            } >> $GITHUB_ENV
           fi
 
       - name: Generate Cartoon Image
@@ -801,6 +843,8 @@ jobs:
           def split_hashtags(text: str):
               return [tag for tag in text.split() if tag]
 
+          story_text = os.environ.get("CURRENT_STORY", "")
+
           payload = {
               "job_id": os.environ.get("CLIENT_JOB_ID", ""),
               "summary": os.environ.get("CURRENT_SUMMARY", ""),
@@ -812,6 +856,7 @@ jobs:
               "prompt_notes": os.environ.get("PROMPT_NOTES", ""),
               "ai_prompt": os.environ.get("AI_PROMPT_TEXT", ""),
               "article_context": os.environ.get("ARTICLE_SUMMARY", ""),
+              "story": story_text,
           }
 
           with open('console-result.json', 'w', encoding='utf-8') as fh:
