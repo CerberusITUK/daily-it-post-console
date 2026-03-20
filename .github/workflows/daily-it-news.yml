@@ -41,6 +41,11 @@ on:
         required: false
         default: ""
         type: string
+      timestamp:
+        description: "Current article ISO timestamp"
+        required: false
+        default: ""
+        type: string
       source_name:
         description: "Current article source name"
         required: false
@@ -93,6 +98,9 @@ jobs:
           EOF
           cat << 'EOF' >> $GITHUB_OUTPUT
           date=${{ github.event.inputs.date || '' }}
+          EOF
+          cat << 'EOF' >> $GITHUB_OUTPUT
+          timestamp=${{ github.event.inputs.timestamp || '' }}
           EOF
           cat << 'EOF' >> $GITHUB_OUTPUT
           source_name=${{ github.event.inputs.source_name || '' }}
