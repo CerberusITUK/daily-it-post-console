@@ -339,8 +339,9 @@ function renderArticles() {
     }
     
     // Clicking anywhere on the card opens the story modal
-    button.addEventListener('click', (e) => {
-      // Don't open modal if clicking the send to AI button
+    const wrapper = clone.querySelector('.article-item-wrapper');
+    wrapper.addEventListener('click', (e) => {
+      // Don't open modal if clicking the send to AI button or hide button
       if (e.target.closest('.send-to-ai-btn') || e.target.closest('.hide-btn')) return;
       openStoryModal(idx);
     });
@@ -350,7 +351,10 @@ function renderArticles() {
       selectArticleAndDraft(idx);
     });
     
-    hideBtn.addEventListener('click', (e) => hideArticle(idx, e));
+    hideBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      hideArticle(idx, e);
+    });
     
     elements.articlesContainer.appendChild(clone);
   });
