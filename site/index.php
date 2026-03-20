@@ -4,7 +4,7 @@ $repo_owner = 'CerberusITUK';
 $repo_name  = 'daily-post-images';
 $cache_file = __DIR__ . '/posts_cache.json';
 $cache_time = 300; // Cache duration in seconds (5 minutes)
-$max_posts  = 24;
+$posts_per_page = 24;
 
 // Optional token support: either define GITHUB_CONTENT_TOKEN in config.php or set env var
 $github_token = getenv('GITHUB_CONTENT_TOKEN') ?: (defined('GITHUB_CONTENT_TOKEN') ? GITHUB_CONTENT_TOKEN : null);
@@ -40,9 +40,9 @@ function fetch_github_json($url) {
 }
 
 function get_posts() {
-    global $repo_owner, $repo_name, $cache_file, $cache_time, $max_posts;
+    global $repo_owner, $repo_name, $cache_file, $cache_time, $github_token;
 
-    // Check cache
+    // Check cache first
     if (file_exists($cache_file) && (time() - filemtime($cache_file)) < $cache_time) {
         $data = json_decode(file_get_contents($cache_file), true);
         if ($data && isset($data['posts'])) {
@@ -77,7 +77,7 @@ function get_posts() {
     // Hydrate top N posts
     $count = 0;
     foreach ($json_files as $file) {
-        if ($count >= $max_posts) break;
+        if ($count >= $total) break;
         
         $post_data = fetch_github_json($file['download_url']);
         if ($post_data) {
@@ -114,12 +114,41 @@ function get_posts() {
     return $result;
 }
 
-$data = get_posts();
-$posts = $data['posts'];
-$total = $data['total'];
+$all_posts_raw = get_posts();
 
-$featured = !empty($posts) ? $posts[0] : null;
-$sarcasm_count = (int)round($total * 1.4);
+$all_posts = [];
+foreach ($all_posts_raw['posts'] as $item) {
+    $all_posts[] = [
+        'title'   => $item['title'] ?? 'Unknown',
+        'summary' => $item['summary'] ?? '',
+        'date'    => $item['date'] ?? '',
+        'link'    => $item['link'] ?? '#',
+        'source'  => $item['source'] ?? 'Unknown',
+        'tags'    => $item['tags'] ?? [],
+        'image'   => $item['image'] ?? null
+    ];
+}
+
+$total_posts = count($all_posts);
+$sort_order = isset($_GET['sort']) && $_GET['sort'] === 'asc' ? 'asc' : 'desc';
+
+// Sort by date
+usort($all_posts, function($a, $b) use ($sort_order) {
+    $timeA = strtotime($a['date'] ?? 'now');
+    $timeB = strtotime($b['date'] ?? 'now');
+    return $sort_order === 'asc' ? $timeA - $timeB : $timeB - $timeA;
+});
+
+$current_page = isset($_GET['page']) ? max(1, (int)$_GET['page']) : 1;
+$total_pages = ceil($total_posts / $posts_per_page);
+if ($current_page > $total_pages && $total_pages > 0) {
+    $current_page = $total_pages;
+}
+
+$offset = ($current_page - 1) * $posts_per_page;
+$posts = array_slice($all_posts, $offset, $posts_per_page);
+
+$featured = !empty($all_posts) ? $all_posts[0] : null;
 
 function escape($str) {
     return htmlspecialchars($str ?? '', ENT_QUOTES, 'UTF-8');
@@ -224,6 +253,10 @@ function escape($str) {
               <p class="eyebrow">Recent drops</p>
               <h2>Latest Daily IT Gremlins</h2>
             </div>
+            <div class="sort-controls">
+              <a href="?sort=desc#recent-posts" class="btn <?= $sort_order === 'desc' ? 'primary' : 'secondary' ?> btn-small">Newest</a>
+              <a href="?sort=asc#recent-posts" class="btn <?= $sort_order === 'asc' ? 'primary' : 'secondary' ?> btn-small">Oldest</a>
+            </div>
           </div>
 
           <?php if (empty($posts)): ?>
@@ -260,6 +293,21 @@ function escape($str) {
               endforeach; 
               ?>
             </article>
+
+            <?php if ($total_pages > 1): ?>
+            <div class="pagination">
+                <?php if ($current_page > 1): ?>
+                    <a href="?page=<?= $current_page - 1 ?>&sort=<?= $sort_order ?>#recent-posts" class="btn secondary">&laquo; Previous</a>
+                <?php endif; ?>
+                
+                <span class="page-info">Page <?= $current_page ?> of <?= $total_pages ?></span>
+                
+                <?php if ($current_page < $total_pages): ?>
+                    <a href="?page=<?= $current_page + 1 ?>&sort=<?= $sort_order ?>#recent-posts" class="btn secondary">Next &raquo;</a>
+                <?php endif; ?>
+            </div>
+            <?php endif; ?>
+            
           <?php endif; ?>
         </div>
       </section>
