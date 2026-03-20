@@ -564,16 +564,12 @@ async function pollJob() {
   if (!state.currentJobId) return;
   try {
     const data = await apiFetch(`/api/jobs/${state.currentJobId}`);
-    console.log('Poll response:', data);
     updateJobStatus(data.status, data.status === 'success' ? 'success' : 'primary');
     if (data.logs?.length) {
       data.logs.slice(-3).forEach((msg) => addLog(msg));
     }
     if (data.output) {
-      console.log('Calling renderResults with output:', data.output);
       renderResults(data.output);
-    } else {
-      console.log('No output field in response');
     }
 
     if (['success', 'failed', 'cancelled'].includes(data.status)) {
