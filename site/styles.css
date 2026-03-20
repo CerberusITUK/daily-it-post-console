@@ -38,7 +38,8 @@ a:hover {
 }
 
 .shell {
-  width: min(1200px, calc(100% - var(--shell)));
+  /* 1400px max width, with at least 5rem (approx 80px) on the edges on large screens, scaled down on mobile */
+  width: min(1400px, calc(100% - clamp(2rem, 10vw, 10rem)));
   margin-inline: auto;
 }
 
@@ -272,7 +273,7 @@ a:hover {
 .comic {
   display: grid;
   grid-template-columns: 1fr;
-  gap: 1.25rem;
+  gap: 3rem;
   margin-top: 1rem;
   font-family: 'Bangers', 'Comic Sans MS', cursive;
 }
