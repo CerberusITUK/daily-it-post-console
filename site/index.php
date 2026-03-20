@@ -476,7 +476,7 @@ function escape($str) {
         <img src="" alt="Expanded post image" />
         <figcaption></figcaption>
         <div class="image-modal__footer" style="margin-top: 1.5rem; text-align: left; display: none;">
-          <a href="#" class="story-link" style="text-decoration: none;" target="_blank" rel="noopener">Read the Story &rarr;</a>
+          <button type="button" class="story-link" style="text-decoration: none; background: none; border: none; padding: 0; font: inherit; cursor: pointer; color: var(--accent); font-weight: 600;">Read the Story &rarr;</button>
         </div>
       </figure>
     </div>
@@ -498,17 +498,20 @@ function escape($str) {
         const modalImg = modal.querySelector('img');
         const caption = modal.querySelector('figcaption');
         const imageFooter = modal.querySelector('.image-modal__footer');
-        const imageFooterLink = imageFooter.querySelector('a');
+        const imageFooterBtn = imageFooter.querySelector('button.story-link');
         const closeTargets = modal.querySelectorAll('[data-close-modal]');
 
+        // Store current trigger for passing to story modal
+        let currentImageTrigger = null;
+
         function openModal(img) {
+          currentImageTrigger = img;
           modalImg.src = img.src;
           modalImg.alt = img.alt || 'Expanded post image';
           caption.textContent = img.closest('.panel')?.querySelector('h3')?.textContent || img.alt || '';
           
-          const link = img.getAttribute('data-link');
-          if (link) {
-            imageFooterLink.href = link;
+          const storyData = img.getAttribute('data-story');
+          if (storyData) {
             imageFooter.style.display = 'block';
           } else {
             imageFooter.style.display = 'none';
@@ -525,13 +528,20 @@ function escape($str) {
           modal.setAttribute('aria-hidden', 'true');
           modal.setAttribute('inert', '');
           modalImg.src = '';
-          imageFooterLink.href = '#';
+          currentImageTrigger = null;
           document.body.style.overflow = '';
         }
 
         document.querySelectorAll('.panel img').forEach((img) => {
           img.style.cursor = 'zoom-in';
           img.addEventListener('click', () => openModal(img));
+        });
+
+        imageFooterBtn.addEventListener('click', () => {
+          if (currentImageTrigger) {
+            closeModal();
+            openStoryModal(currentImageTrigger);
+          }
         });
 
         closeTargets.forEach((el) => el.addEventListener('click', closeModal));
