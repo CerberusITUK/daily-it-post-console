@@ -131,6 +131,7 @@ async function handleJobStart(request, env) {
     story: workflowAction === 'redo_image' ? (previousResult.story || '') : '',
     link: article.link || '',
     date: article.date || '',
+    timestamp: article.timestamp || '',
     source_name: article.source_name || deriveSourceName(article.link) || 'Source',
     prompt_notes: promptNotes,
     article_payload: JSON.stringify(article)
@@ -576,6 +577,7 @@ async function collectArticles(targetCount) {
           summary: entry.summary,
           link: entry.link,
           date: formatDate(entry.published),
+          timestamp: entry.published ? entry.published.toISOString() : '',
           source_name: entry.source_name || deriveSourceName(entry.link),
           region: entry.region
         })),

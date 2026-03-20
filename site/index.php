@@ -115,6 +115,7 @@ function get_posts() {
                 'image'   => $post_data['image'] ?? '',
                 'link'    => $link,
                 'date'    => $post_data['article_date'] ?? '',
+                'timestamp' => $post_data['timestamp'] ?? '',
                 'source'  => $source_name,
                 'tags'    => array_slice($hashtags, 0, 2),
                 'story'   => $post_data['story'] ?? ''
@@ -136,18 +137,19 @@ function get_posts() {
 $all_posts_raw = get_posts();
 
 $all_posts = [];
-foreach ($all_posts_raw['posts'] as $item) {
-    $all_posts[] = [
-        'title'   => $item['title'] ?? 'Unknown',
-        'summary' => $item['summary'] ?? '',
-        'date'    => $item['date'] ?? '',
-        'link'    => $item['link'] ?? '#',
-        'source'  => $item['source'] ?? 'Unknown',
-        'tags'    => $item['tags'] ?? [],
-        'image'   => $item['image'] ?? null,
-        'story'   => $item['story'] ?? ''
-    ];
-}
+    foreach ($all_posts_raw['posts'] as $item) {
+        $all_posts[] = [
+            'title'   => $item['title'] ?? 'Unknown',
+            'summary' => $item['summary'] ?? '',
+            'date'    => $item['date'] ?? '',
+            'timestamp' => $item['timestamp'] ?? '',
+            'link'    => $item['link'] ?? '#',
+            'source'  => $item['source'] ?? 'Unknown',
+            'tags'    => $item['tags'] ?? [],
+            'image'   => $item['image'] ?? null,
+            'story'   => $item['story'] ?? ''
+        ];
+    }
 
 $sort_order = isset($_GET['sort']) && $_GET['sort'] === 'asc' ? 'asc' : 'desc';
 
@@ -167,7 +169,7 @@ $featured = null;
 $latest_index = null;
 $latest_timestamp = null;
 foreach ($all_posts as $idx => $post) {
-    $ts = parse_uk_date($post['date'] ?? '');
+    $ts = !empty($post['timestamp']) ? strtotime($post['timestamp']) : parse_uk_date($post['date'] ?? '');
     if ($latest_timestamp === null || $ts > $latest_timestamp) {
         $latest_timestamp = $ts;
         $latest_index = $idx;
@@ -182,8 +184,8 @@ if ($latest_index !== null) {
 
 // Sort by date
 usort($all_posts, function($a, $b) use ($sort_order) {
-    $timeA = parse_uk_date($a['date'] ?? '');
-    $timeB = parse_uk_date($b['date'] ?? '');
+    $timeA = !empty($a['timestamp']) ? strtotime($a['timestamp']) : parse_uk_date($a['date'] ?? '');
+    $timeB = !empty($b['timestamp']) ? strtotime($b['timestamp']) : parse_uk_date($b['date'] ?? '');
     return $sort_order === 'asc' ? $timeA - $timeB : $timeB - $timeA;
 });
 

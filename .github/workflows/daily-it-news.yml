@@ -877,6 +877,7 @@ jobs:
               "image": os.environ.get("CURRENT_IMAGE", ""),
               "article_link": os.environ.get("ARTICLE_LINK", ""),
               "article_date": os.environ.get("ARTICLE_DATE", ""),
+              "timestamp": os.environ.get("ARTICLE_TIMESTAMP", ""),
               "source_name": os.environ.get("SOURCE_NAME", "Source"),
               "prompt_notes": os.environ.get("PROMPT_NOTES", ""),
               "ai_prompt": os.environ.get("AI_PROMPT_TEXT", ""),
