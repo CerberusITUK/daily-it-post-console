@@ -282,7 +282,7 @@ a:hover {
   box-shadow: 6px 6px 0px #000;
   flex: 1 1 220px;
   min-height: 220px;
-  padding: 1.5rem 1.25rem 2rem;
+  padding: 2.5rem 1.25rem 2.5rem;
   position: relative;
   display: flex;
   flex-direction: column;
