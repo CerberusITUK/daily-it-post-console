@@ -124,11 +124,6 @@ $sarcasm_count = (int)round($total * 1.4);
 function escape($str) {
     return htmlspecialchars($str ?? '', ENT_QUOTES, 'UTF-8');
 }
-
-function trim_summary($text) {
-    if (!$text) return '';
-    return strlen($text) > 180 ? substr($text, 0, 177) . '…' : $text;
-}
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -246,7 +241,7 @@ function trim_summary($text) {
                   <p class="text bottom-right">Source: <?= escape($post['source']) ?></p>
                   <div class="panel-body">
                     <h3><?= escape($post['title']) ?></h3>
-                    <p><?= escape(trim_summary($post['summary'])) ?></p>
+                    <p><?= escape($post['summary']) ?></p>
                     <?php if (!empty($post['image'])): ?>
                       <img src="<?= escape($post['image']) ?>" alt="Post image" loading="lazy" />
                     <?php endif; ?>
