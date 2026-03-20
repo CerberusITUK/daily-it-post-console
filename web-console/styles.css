@@ -350,6 +350,25 @@ button:hover:not(:disabled) {
   z-index: 5;
 }
 
+.approved-badge {
+  position: absolute;
+  top: -0.5rem;
+  right: -0.5rem;
+  background: var(--warning);
+  color: #713f12;
+  font-size: 0.75rem;
+  font-weight: 700;
+  padding: 0.2rem 0.6rem;
+  border-radius: 12px;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+  z-index: 5;
+}
+
+.article-item.approved {
+  border-color: var(--warning);
+  background: rgba(251, 191, 36, 0.1);
+}
+
 .article-item.posted {
   opacity: 0.7;
   border-color: var(--success);

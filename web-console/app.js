@@ -59,6 +59,7 @@ const state = {
   jobHistory: [],
   hiddenArticles: new Set(JSON.parse(localStorage.getItem('hiddenArticles') || '[]')),
   postedArticles: new Set(JSON.parse(localStorage.getItem('postedArticles') || '[]')),
+  approvedArticles: new Set(JSON.parse(localStorage.getItem('approvedArticles') || '[]')),
 };
 
 const storageKey = 'daily-it-console-session';
@@ -339,6 +340,12 @@ function renderArticles() {
     if (article.link && state.postedArticles.has(article.link)) {
       button.classList.add('posted');
       postedBadge.classList.remove('hidden');
+    }
+    
+    if (article.link && state.approvedArticles.has(article.link)) {
+      button.classList.add('approved');
+      const approvedBadge = clone.querySelector('.approved-badge');
+      if (approvedBadge) approvedBadge.classList.remove('hidden');
     }
     
     // Clicking anywhere on the card opens the story modal
@@ -623,9 +630,11 @@ async function approveCurrent() {
     });
     addLog('Approval sent to workflow successfully', 'success');
     
-    // Once approved, mark as posted and clear state so they can pick a new article
+    // Once approved, mark as approved and posted
     if (state.lastArticlePayload && state.lastArticlePayload.link) {
+      state.approvedArticles.add(state.lastArticlePayload.link);
       state.postedArticles.add(state.lastArticlePayload.link);
+      localStorage.setItem('approvedArticles', JSON.stringify([...state.approvedArticles]));
       localStorage.setItem('postedArticles', JSON.stringify([...state.postedArticles]));
     }
     
