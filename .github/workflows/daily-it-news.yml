@@ -565,6 +565,31 @@ jobs:
               host = host.lower().lstrip('www.')
               if not host:
                   return "Source"
+              if "bleepingcomputer.com" in host:
+                  return "Bleeping Computer"
+              if "bbc.co.uk" in host or "bbc.com" in host:
+                  return "BBC News"
+              if "theregister.com" in host:
+                  return "The Register"
+              if "gizmodo.com" in host:
+                  return "Gizmodo"
+              if "infosecurity-magazine.com" in host:
+                  return "Infosecurity Magazine"
+              if "techcrunch.com" in host:
+                  return "TechCrunch"
+              if "cybernews.com" in host:
+                  return "Cybernews"
+              if "wired.com" in host:
+                  return "WIRED"
+              if "theverge.com" in host:
+                  return "The Verge"
+              if "zdnet.com" in host:
+                  return "ZDNet"
+              if "arstechnica.com" in host:
+                  return "Ars Technica"
+              if "darkreading.com" in host:
+                  return "Dark Reading"
+
               parts = host.split('.')
               if len(parts) >= 3 and parts[-2] in {"co", "com", "org", "net", "gov"}:
                   name_part = parts[-3]
