@@ -150,8 +150,16 @@ async function apiFetch(path, options = {}) {
   });
 
   if (res.status === 401) {
-    logout();
-    throw new Error('Unauthorised — please log in again');
+    // If not the login path, automatically force logout so they know they need to sign in again
+    if (!path.includes('/api/login')) {
+      state.token = null;
+      state.tokenExpiry = null;
+      localStorage.removeItem('console_session');
+      showAuth();
+      addLog('Session expired. Please log in again.', 'error');
+      alert('Your session has expired. Please log in again.');
+    }
+    throw new Error('Unauthorized');
   }
 
   if (!res.ok) {
