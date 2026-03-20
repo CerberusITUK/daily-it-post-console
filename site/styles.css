@@ -328,6 +328,7 @@ a:hover {
 
 .story-link {
   align-self: flex-start;
+  display: inline-block;
   border: 2px solid #000;
   background: var(--accent);
   color: #000;
@@ -337,7 +338,8 @@ a:hover {
   padding: 0.35rem 0.9rem;
   border-radius: 999px;
   cursor: pointer;
-  margin-top: 0.5rem;
+  margin-top: 0.25rem;
+  margin-bottom: 0.25rem;
   box-shadow: 4px 4px 0 #000;
 }
 

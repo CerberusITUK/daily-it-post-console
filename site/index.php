@@ -281,6 +281,16 @@ function escape($str) {
                 <div class="panel-body">
                   <h3><?= escape($featured['title']) ?></h3>
                   <p><?= escape($featured['summary']) ?></p>
+                  <?php if (!empty(trim($featured['story'] ?? ''))): ?>
+                    <button
+                      type="button"
+                      class="story-link"
+                      data-title="<?= escape($featured['title']) ?>"
+                      data-story="<?= escape(base64_encode($featured['story'])) ?>"
+                      data-source="<?= escape($featured['source']) ?>"
+                      data-link="<?= escape($featured['link']) ?>"
+                    >What's the story?</button>
+                  <?php endif; ?>
                   <?php if (!empty($featured['image'])): ?>
                     <img src="<?= escape($featured['image']) ?>" alt="Featured post image" width="600" height="400" loading="lazy" />
                   <?php endif; ?>
@@ -292,16 +302,6 @@ function escape($str) {
                     </div>
                   <?php endif; ?>
                 </div>
-                <?php if (!empty(trim($featured['story'] ?? ''))): ?>
-                  <button
-                    type="button"
-                    class="story-link"
-                    data-title="<?= escape($featured['title']) ?>"
-                    data-story="<?= escape(base64_encode($featured['story'])) ?>"
-                    data-source="<?= escape($featured['source']) ?>"
-                    data-link="<?= escape($featured['link']) ?>"
-                  >What's the story?</button>
-                <?php endif; ?>
                 <a href="<?= escape($featured['link']) ?>" class="panel-link" target="_blank" rel="noopener">Open article →</a>
               </div>
             <?php else: ?>
@@ -345,6 +345,16 @@ function escape($str) {
                   <div class="panel-body">
                     <h3><?= escape($post['title']) ?></h3>
                     <p><?= escape($post['summary']) ?></p>
+                    <?php if (!empty(trim($post['story'] ?? ''))): ?>
+                      <button
+                        type="button"
+                        class="story-link"
+                        data-title="<?= escape($post['title']) ?>"
+                        data-story="<?= escape(base64_encode($post['story'])) ?>"
+                        data-source="<?= escape($post['source']) ?>"
+                        data-link="<?= escape($post['link']) ?>"
+                      >What's the story?</button>
+                    <?php endif; ?>
                     <?php if (!empty($post['image'])): ?>
                       <img src="<?= escape($post['image']) ?>" alt="Post image" width="400" height="267" loading="lazy" />
                     <?php endif; ?>
@@ -356,16 +366,6 @@ function escape($str) {
                       </div>
                     <?php endif; ?>
                   </div>
-                  <?php if (!empty(trim($post['story'] ?? ''))): ?>
-                    <button
-                      type="button"
-                      class="story-link"
-                      data-title="<?= escape($post['title']) ?>"
-                      data-story="<?= escape(base64_encode($post['story'])) ?>"
-                      data-source="<?= escape($post['source']) ?>"
-                      data-link="<?= escape($post['link']) ?>"
-                    >What's the story?</button>
-                  <?php endif; ?>
                   <a href="<?= escape($post['link']) ?>" class="panel-link" target="_blank" rel="noopener">Open article →</a>
                 </div>
               <?php 
