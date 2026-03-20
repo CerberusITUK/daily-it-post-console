@@ -660,13 +660,23 @@ jobs:
                   paragraphs = paragraphs[:2]
               return '\n\n'.join(paragraphs)
 
+          def filter_non_compliant(text: str) -> str:
+              """Remove non-compliant characters and emojis, keeping basic Unicode"""
+              import re
+              # Allow basic ASCII, common punctuation, and basic Unicode letters/numbers
+              # Remove emojis, fancy symbols, and problematic characters
+              # Keep: \x20-\x7E (basic ASCII), \xA0-\xFF (Latin-1), \u0100-\u017F (Latin Extended-A), \u0180-\u024F (Latin Extended-B)
+              # Also allow common punctuation and currency symbols
+              pattern = re.compile(r'[^\x20-\x7E\xA0-\xFF\u0100-\u017F\u0180-\u024F\u20AC\u00A3\u00A5\u20A3\u20A4\u20B4\u20B5\u20B8\u20AA\u20AD\u20BE\u20BF\u20A0-\u20AF\u0300-\u036F\u1AB0-\u1AFF\u1DC0-\u1DFF\u20D0-\u20FF\uFE20-\uFE2F\s.,!?;:()\-"\']')
+              return pattern.sub('', text)
+
           story_text = ''
           try:
               ai_payload = json.loads(resp)
               content = ai_payload["choices"][0]["message"]["content"]
               data = parse_json_payload(content) or {}
-              title = str(data.get("title", "")).strip()
-              summary = str(data.get("summary", "")).strip()
+              title = filter_non_compliant(str(data.get("title", "")).strip())
+              summary = filter_non_compliant(str(data.get("summary", "")).strip())
               hashtags_value = data.get("hashtags", [])
               if isinstance(hashtags_value, str):
                   hashtags_list = [hashtags_value]
@@ -682,7 +692,7 @@ jobs:
 
               final_summary = " ".join(final_summary.split())
               hashtags = " ".join(tag.strip() for tag in hashtags_list if tag and tag.strip()) or "#IT #News"
-              story_text = normalize_story(data.get("story", ""))
+              story_text = filter_non_compliant(normalize_story(data.get("story", "")))
           except Exception:
               final_summary = "Failed to parse AI summary."
               hashtags = "#IT #News"
