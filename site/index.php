@@ -410,7 +410,7 @@ function escape($str) {
                           >Read the Story &rarr;</button>
                         <?php endif; ?>
                         <?php if (!empty($post['image'])): ?>
-                          <img src="<?= escape($post['image']) ?>" alt="Post image" width="400" height="267" loading="lazy" data-link="<?= escape($post['link']) ?>" />
+                          <img src="<?= escape($post['image']) ?>" alt="Post image" loading="lazy" data-link="<?= escape($post['link']) ?>" />
                         <?php endif; ?>
                         <?php if (!empty($post['tags'])): ?>
                           <div class="tag-row">
