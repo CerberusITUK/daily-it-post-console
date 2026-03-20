@@ -125,6 +125,7 @@ async function handleJobStart(request, env) {
     summary: workflowAction === 'redo_image' ? (previousResult.summary || '') : '',
     image: workflowAction === 'redo_image' ? (previousResult.image || '') : '',
     hashtags: workflowAction === 'redo_image' ? (Array.isArray(previousResult.hashtags) ? previousResult.hashtags.join(' ') : (previousResult.hashtags || '')) : '',
+    story: workflowAction === 'redo_image' ? (previousResult.story || '') : '',
     link: article.link || '',
     date: article.date || '',
     source_name: article.source_name || deriveSourceName(article.link) || 'Source',

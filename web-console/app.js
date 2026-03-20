@@ -416,6 +416,7 @@ async function triggerJob(action) {
     action,
     article: articlePayload,
     promptNotes: elements.promptNotesInput.value.trim(),
+    previousResult: action === 'redo_image' && state.lastResult ? state.lastResult : undefined,
   };
 
   try {
