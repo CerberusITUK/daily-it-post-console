@@ -578,13 +578,17 @@ async function pollJob() {
 }
 
 function renderResults(output) {
+  console.log('renderResults called with:', output);
   if (output.summary) {
     elements.resultSummary.textContent = output.summary;
     elements.resultSummary.classList.remove('muted');
   }
   if (output.story) {
+    console.log('Setting story text:', output.story);
     elements.resultStory.textContent = output.story;
     elements.resultStory.classList.remove('muted');
+  } else {
+    console.log('No story field in output');
   }
   if (output.hashtags) {
     elements.resultHashtags.textContent = Array.isArray(output.hashtags) ? output.hashtags.join(' ') : output.hashtags;
