@@ -27,6 +27,7 @@ const elements = {
   redoImageBtn: document.getElementById('redo-image-btn'),
   approveBtn: document.getElementById('approve-btn'),
   resultSummary: document.getElementById('result-summary'),
+  resultStory: document.getElementById('result-story'),
   resultHashtags: document.getElementById('result-hashtags'),
   resultImage: document.getElementById('result-image'),
   imagePlaceholder: document.getElementById('image-placeholder'),
@@ -139,6 +140,8 @@ function showPreviewView() {
 function clearPreview() {
   elements.resultSummary.textContent = 'AI is generating the summary...';
   elements.resultSummary.classList.add('muted');
+  elements.resultStory.textContent = 'AI is writing the story...';
+  elements.resultStory.classList.add('muted');
   elements.resultHashtags.textContent = '';
   elements.resultHashtags.classList.add('muted');
   elements.resultImage.src = '';
@@ -578,6 +581,10 @@ function renderResults(output) {
   if (output.summary) {
     elements.resultSummary.textContent = output.summary;
     elements.resultSummary.classList.remove('muted');
+  }
+  if (output.story) {
+    elements.resultStory.textContent = output.story;
+    elements.resultStory.classList.remove('muted');
   }
   if (output.hashtags) {
     elements.resultHashtags.textContent = Array.isArray(output.hashtags) ? output.hashtags.join(' ') : output.hashtags;
