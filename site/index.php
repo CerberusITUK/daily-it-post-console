@@ -280,7 +280,7 @@ function escape($str) {
               <h2>Latest News</h2>
             </div>
             <div class="sort-controls">
-              <a href="?sort=desc#recent-posts" class="btn <?= $sort_order === 'desc' ? 'primary' : 'secondary' ?> btn-small">Newest</a>
+              <a href="?sort=desc#recent-posts" class="btn <?= $sort_order === 'desc' ? 'primary' : 'secondary' ?> btn-small">Newest first</a>
               <a href="?sort=asc#recent-posts" class="btn <?= $sort_order === 'asc' ? 'primary' : 'secondary' ?> btn-small">Oldest</a>
             </div>
           </div>
