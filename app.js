@@ -27,12 +27,22 @@ const elements = {
   redoImageBtn: document.getElementById('redo-image-btn'),
   approveBtn: document.getElementById('approve-btn'),
   resultSummary: document.getElementById('result-summary'),
+  resultStory: document.getElementById('result-story'),
   resultHashtags: document.getElementById('result-hashtags'),
   resultImage: document.getElementById('result-image'),
   imagePlaceholder: document.getElementById('image-placeholder'),
   jobStatusPill: document.getElementById('job-status-pill'),
   jobLogList: document.getElementById('job-log-list'),
   clearLogBtn: document.getElementById('clear-log-btn'),
+  
+  // Story Modal elements
+  storyModal: document.getElementById('story-modal'),
+  storyModalTitle: document.getElementById('story-modal-title'),
+  storyModalSource: document.getElementById('story-modal-source'),
+  storyModalSummary: document.getElementById('story-modal-summary'),
+  storyModalLink: document.getElementById('story-modal-link'),
+  storyModalClose: document.getElementById('story-modal-close'),
+  storyModalSendBtn: document.getElementById('story-modal-send-btn'),
 };
 
 const articleTemplate = document.getElementById('article-item-template');
@@ -48,6 +58,8 @@ const state = {
   hasMoreArticles: false,
   jobHistory: [],
   hiddenArticles: new Set(JSON.parse(localStorage.getItem('hiddenArticles') || '[]')),
+  postedArticles: new Set(JSON.parse(localStorage.getItem('postedArticles') || '[]')),
+  approvedArticles: new Set(JSON.parse(localStorage.getItem('approvedArticles') || '[]')),
 };
 
 const storageKey = 'daily-it-console-session';
@@ -129,6 +141,8 @@ function showPreviewView() {
 function clearPreview() {
   elements.resultSummary.textContent = 'AI is generating the summary...';
   elements.resultSummary.classList.add('muted');
+  elements.resultStory.textContent = 'AI is writing the story...';
+  elements.resultStory.classList.add('muted');
   elements.resultHashtags.textContent = '';
   elements.resultHashtags.classList.add('muted');
   elements.resultImage.src = '';
@@ -150,8 +164,16 @@ async function apiFetch(path, options = {}) {
   });
 
   if (res.status === 401) {
-    logout();
-    throw new Error('Unauthorised — please log in again');
+    // If not the login path, automatically force logout so they know they need to sign in again
+    if (!path.includes('/api/login')) {
+      state.token = null;
+      state.tokenExpiry = null;
+      localStorage.removeItem('console_session');
+      showAuth();
+      addLog('Session expired. Please log in again.', 'error');
+      alert('Your session has expired. Please log in again.');
+    }
+    throw new Error('Unauthorized');
   }
 
   if (!res.ok) {
@@ -305,18 +327,92 @@ function renderArticles() {
     const clone = articleTemplate.content.cloneNode(true);
     const button = clone.querySelector('.article-item');
     const hideBtn = clone.querySelector('.hide-btn');
+    const sendToAiBtn = clone.querySelector('.send-to-ai-btn');
+    const postedBadge = clone.querySelector('.posted-badge');
     
     button.dataset.index = idx;
     button.querySelector('.article-title').textContent = article.title || 'Untitled';
     button.querySelector('.article-source').textContent = article.source_name || 'Source';
     button.querySelector('.article-date').textContent = article.date || '';
+    
+    // Make title clickable if link exists
+    const titleElement = button.querySelector('.article-title');
+    if (article.link) {
+      titleElement.style.cursor = 'pointer';
+      titleElement.style.textDecoration = 'underline';
+      titleElement.addEventListener('click', (e) => {
+        e.stopPropagation();
+        window.open(article.link, '_blank');
+      });
+    }
+    
     if (state.selectedArticle === idx) button.classList.add('active');
     
-    button.addEventListener('click', () => selectArticleAndDraft(idx));
-    hideBtn.addEventListener('click', (e) => hideArticle(idx, e));
+    if (article.link && state.postedArticles.has(article.link)) {
+      button.classList.add('posted');
+      postedBadge.classList.remove('hidden');
+    }
+    
+    if (article.link && state.approvedArticles.has(article.link)) {
+      button.classList.add('approved');
+      const approvedBadge = clone.querySelector('.approved-badge');
+      if (approvedBadge) approvedBadge.classList.remove('hidden');
+    }
+    
+    // Clicking anywhere on the card opens the story modal
+    const wrapper = clone.querySelector('.article-item-wrapper');
+    wrapper.addEventListener('click', (e) => {
+      // Don't open modal if clicking the send to AI button or hide button
+      if (e.target.closest('.send-to-ai-btn') || e.target.closest('.hide-btn')) return;
+      openStoryModal(idx);
+    });
+    
+    sendToAiBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      selectArticleAndDraft(idx);
+    });
+    
+    hideBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      hideArticle(idx, e);
+    });
     
     elements.articlesContainer.appendChild(clone);
   });
+}
+
+function openStoryModal(index) {
+  const article = state.articles[index];
+  if (!article) return;
+  
+  state.selectedArticle = index;
+  
+  elements.storyModalTitle.textContent = article.title || 'Untitled';
+  elements.storyModalSource.textContent = article.source_name || 'Source';
+  elements.storyModalSummary.textContent = article.summary || 'No summary available.';
+  
+  if (article.link) {
+    elements.storyModalLink.href = article.link;
+    elements.storyModalLink.style.display = 'inline-block';
+  } else {
+    elements.storyModalLink.style.display = 'none';
+  }
+  
+  elements.storyModal.classList.remove('hidden');
+  elements.storyModal.setAttribute('aria-hidden', 'false');
+  elements.storyModal.removeAttribute('inert');
+  
+  // Set up the Send to AI button
+  elements.storyModalSendBtn.onclick = () => {
+    closeStoryModal();
+    selectArticleAndDraft(index);
+  };
+}
+
+function closeStoryModal() {
+  elements.storyModal.classList.add('hidden');
+  elements.storyModal.setAttribute('aria-hidden', 'true');
+  elements.storyModal.setAttribute('inert', '');
 }
 
 function selectArticleAndDraft(index) {
@@ -416,6 +512,7 @@ async function triggerJob(action) {
     action,
     article: articlePayload,
     promptNotes: elements.promptNotesInput.value.trim(),
+    previousResult: action === 'redo_image' && state.lastResult ? state.lastResult : undefined,
   };
 
   try {
@@ -499,9 +596,17 @@ async function pollJob() {
 }
 
 function renderResults(output) {
+  console.log('renderResults called with:', output);
   if (output.summary) {
     elements.resultSummary.textContent = output.summary;
     elements.resultSummary.classList.remove('muted');
+  }
+  if (output.story) {
+    console.log('Setting story text:', output.story);
+    elements.resultStory.textContent = output.story;
+    elements.resultStory.classList.remove('muted');
+  } else {
+    console.log('No story field in output');
   }
   if (output.hashtags) {
     elements.resultHashtags.textContent = Array.isArray(output.hashtags) ? output.hashtags.join(' ') : output.hashtags;
@@ -536,12 +641,20 @@ async function approveCurrent() {
     });
     addLog('Approval sent to workflow successfully', 'success');
     
-    // Once approved, clear state so they can pick a new article
+    // Once approved, mark as approved and posted
+    if (state.lastArticlePayload && state.lastArticlePayload.link) {
+      state.approvedArticles.add(state.lastArticlePayload.link);
+      state.postedArticles.add(state.lastArticlePayload.link);
+      localStorage.setItem('approvedArticles', JSON.stringify([...state.approvedArticles]));
+      localStorage.setItem('postedArticles', JSON.stringify([...state.postedArticles]));
+    }
+    
     state.lastResultJobId = null;
     state.lastResult = null;
     state.lastArticlePayload = null;
     saveSession();
     updateButtons();
+    renderArticles(); // Re-render to show posted badge
     
     // Automatically take them back to the list
     setTimeout(() => {
@@ -567,6 +680,17 @@ function bindEvents() {
   elements.clearLogBtn.addEventListener('click', () => {
     state.jobHistory = [];
     renderJobLog();
+  });
+  
+  // Modal handlers
+  elements.storyModalClose.addEventListener('click', closeStoryModal);
+  elements.storyModal.addEventListener('click', (e) => {
+    if (e.target === elements.storyModal) closeStoryModal();
+  });
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && !elements.storyModal.classList.contains('hidden')) {
+      closeStoryModal();
+    }
   });
 }
 

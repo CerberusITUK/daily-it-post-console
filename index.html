@@ -4,7 +4,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Daily IT News Console</title>
-    <link rel="stylesheet" href="styles.css" />
+    <link rel="stylesheet" href="styles.css?v=1.4" />
   </head>
   <body>
     <main class="app-shell">
@@ -72,8 +72,12 @@
                   </header>
                   <div class="results-layout">
                     <div class="results-text">
+                      <p class="eyebrow muted" style="margin-bottom:0.5rem; font-size:0.85rem; font-weight:bold; text-transform:uppercase;">Summary (Bluesky)</p>
                       <p id="result-summary" class="article-summary muted">AI is generating the summary...</p>
                       <p id="result-hashtags" class="hashtags muted"></p>
+                      
+                      <p class="eyebrow muted" style="margin-top:1.5rem; margin-bottom:0.5rem; font-size:0.85rem; font-weight:bold; text-transform:uppercase;">Full Story (Blog)</p>
+                      <div id="result-story" class="article-story muted" style="font-size:0.95rem; line-height:1.6; white-space:pre-wrap;"></div>
                     </div>
                     <div class="results-image">
                       <img id="result-image" alt="Cartoon preview" />
@@ -114,16 +118,41 @@
     <template id="article-item-template">
       <li>
         <div class="article-item-wrapper">
-          <button class="article-item">
-            <span class="article-title"></span>
-            <span class="article-source"></span>
-            <span class="article-date"></span>
-          </button>
+          <div class="article-item" role="button" tabindex="0" aria-label="Read story">
+            <div class="article-content">
+              <span class="article-title"></span>
+              <span class="article-source"></span>
+              <span class="article-date"></span>
+            </div>
+            <div class="article-actions">
+              <button class="send-to-ai-btn primary-small">Send to AI</button>
+            </div>
+            <span class="posted-badge hidden">✓ Posted</span>
+            <span class="approved-badge hidden">✓ Approved</span>
+          </div>
           <button class="hide-btn" aria-label="Hide article" title="Hide this article">×</button>
         </div>
       </li>
     </template>
 
-    <script type="module" src="app.js"></script>
+    <!-- Story Modal -->
+    <div id="story-modal" class="modal-overlay hidden" aria-hidden="true" inert>
+      <div class="modal-content card" role="dialog" aria-modal="true" aria-labelledby="story-modal-title">
+        <header class="modal-header">
+          <h2 id="story-modal-title">Story Preview</h2>
+          <button id="story-modal-close" class="ghost-small" aria-label="Close modal">✕</button>
+        </header>
+        <div class="modal-body">
+          <div id="story-modal-source" class="article-source"></div>
+          <p id="story-modal-summary" class="article-summary"></p>
+          <a id="story-modal-link" href="#" target="_blank" rel="noopener" class="external-link">Read full original article ↗</a>
+        </div>
+        <footer class="modal-footer">
+          <button id="story-modal-send-btn" class="primary">Send to AI</button>
+        </footer>
+      </div>
+    </div>
+
+    <script type="module" src="app.js?v=1.5"></script>
   </body>
 </html>
