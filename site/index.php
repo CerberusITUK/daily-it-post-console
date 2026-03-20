@@ -222,23 +222,6 @@ function trim_summary($text) {
         </div>
       </section>
 
-      <section class="metrics">
-        <div class="shell metric-grid">
-          <article>
-            <p class="metric-value"><?= number_format($total) ?></p>
-            <p class="metric-label">Stories analysed</p>
-          </article>
-          <article>
-            <p class="metric-value"><?= number_format($sarcasm_count) ?></p>
-            <p class="metric-label">Zingers delivered</p>
-          </article>
-          <article>
-            <p class="metric-value"><?= count($posts) ?></p>
-            <p class="metric-label">Bluesky posts shipped</p>
-          </article>
-        </div>
-      </section>
-
       <section class="posts" id="recent-posts">
         <div class="shell">
           <div class="section-header">
@@ -246,7 +229,6 @@ function trim_summary($text) {
               <p class="eyebrow">Recent drops</p>
               <h2>Latest Daily IT Gremlins</h2>
             </div>
-            <a class="btn ghost" href="https://github.com/CerberusITUK/daily-post-images" target="_blank" rel="noopener">View raw feed</a>
           </div>
           
           <div class="posts-grid">
