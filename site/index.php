@@ -469,12 +469,23 @@ function escape($str) {
         if (!modal) return;
         const modalImg = modal.querySelector('img');
         const caption = modal.querySelector('figcaption');
+        const imageFooter = modal.querySelector('.image-modal__footer');
+        const imageFooterLink = imageFooter.querySelector('a');
         const closeTargets = modal.querySelectorAll('[data-close-modal]');
 
         function openModal(img) {
           modalImg.src = img.src;
           modalImg.alt = img.alt || 'Expanded post image';
           caption.textContent = img.closest('.panel')?.querySelector('h3')?.textContent || img.alt || '';
+          
+          const link = img.getAttribute('data-link');
+          if (link) {
+            imageFooterLink.href = link;
+            imageFooter.style.display = 'block';
+          } else {
+            imageFooter.style.display = 'none';
+          }
+          
           modal.classList.add('is-visible');
           modal.setAttribute('aria-hidden', 'false');
           modal.removeAttribute('inert');
@@ -486,6 +497,7 @@ function escape($str) {
           modal.setAttribute('aria-hidden', 'true');
           modal.setAttribute('inert', '');
           modalImg.src = '';
+          imageFooterLink.href = '#';
           document.body.style.overflow = '';
         }
 
